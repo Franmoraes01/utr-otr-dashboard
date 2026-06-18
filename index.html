@@ -336,17 +336,20 @@ function matchesToday(val) {
 
 function detectCols(columns) {
   const lc = columns.map(c => c.toLowerCase());
+  // correspondência EXATA (case-insensitive) — evita que 'carrierId' seja confundido com 'carrier'
+  const exact = name => columns.find(c => c.toLowerCase() === name.toLowerCase()) || '';
+  // correspondência por fragmento (fallback)
   const f = (...frags) => {
-    const idx = lc.findIndex(c => frags.every(f => c.includes(f.toLowerCase())));
+    const idx = lc.findIndex(c => frags.every(g => c.includes(g.toLowerCase())));
     return idx >= 0 ? columns[idx] : '';
   };
   return {
-    carrier:      f('carriername') || f('carrier.name') || f('carrier_name') || f('carrier'),
-    status:       f('status'),
-    facilityId:   f('facilityid') || f('facility.id') || f('facility_id'),
-    facilityType: f('facilitytype') || f('facility.type') || f('facility_type'),
-    cluster:      f('cluster'),
-    initDate:     f('initdate') || f('init.date') || f('init_date') || f('startdate') || f('start.date') || f('routedate'),
+    carrier:      exact('carrier')      || exact('carrierName') || f('carriername') || f('carrier.name') || f('carrier_name'),
+    status:       exact('status')       || f('status'),
+    facilityId:   exact('facilityId')   || exact('facilityid')   || f('facilityid')   || f('facility.id')   || f('facility_id'),
+    facilityType: exact('facilityType') || exact('facilitytype') || f('facilitytype') || f('facility.type') || f('facility_type'),
+    cluster:      exact('cluster')      || f('cluster'),
+    initDate:     exact('initDate')     || exact('initdate')     || f('initdate')     || f('init.date')     || f('init_date'),
   };
 }
 
