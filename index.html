@@ -302,17 +302,25 @@ function today() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 }
-// Aceita ISO (2026-06-18T...), YYYY-MM-DD e DD/MM/YYYY
+// Aceita Unix timestamp (segundos ou ms), ISO (2026-06-18T...) e DD/MM/YYYY
 function matchesToday(val) {
   const s = String(val || '').trim();
   if (!s || nullish(s)) return false;
-  const now = new Date();
+  const num = Number(s);
+  if (!isNaN(num) && /^\d+$/.test(s)) {
+    // Unix timestamp: >1e12 = milissegundos, senão segundos
+    const ms = num > 1e12 ? num : num * 1000;
+    const d  = new Date(ms);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() &&
+           d.getMonth()    === now.getMonth()    &&
+           d.getDate()     === now.getDate();
+  }
+  const now  = new Date();
   const yyyy = now.getFullYear();
   const mm   = String(now.getMonth()+1).padStart(2,'0');
   const dd   = String(now.getDate()).padStart(2,'0');
-  const iso  = `${yyyy}-${mm}-${dd}`;  // YYYY-MM-DD
-  const br   = `${dd}/${mm}/${yyyy}`;  // DD/MM/YYYY
-  return s.startsWith(iso) || s.startsWith(br);
+  return s.startsWith(`${yyyy}-${mm}-${dd}`) || s.startsWith(`${dd}/${mm}/${yyyy}`);
 }
 
 function detectCols(columns) {
@@ -322,9 +330,9 @@ function detectCols(columns) {
     return idx >= 0 ? columns[idx] : '';
   };
   return {
-    carrier:      f('carrier'),
+    carrier:      f('carriername') || f('carrier.name') || f('carrier_name') || f('carrier'),
     status:       f('status'),
-    facilityId:   f('facilityid') || f('facility.id') || f('facility_id') || f('facilityid'),
+    facilityId:   f('facilityid') || f('facility.id') || f('facility_id'),
     facilityType: f('facilitytype') || f('facility.type') || f('facility_type'),
     cluster:      f('cluster'),
     initDate:     f('initdate') || f('init.date') || f('init_date') || f('startdate') || f('start.date') || f('routedate'),
@@ -618,10 +626,11 @@ function loadData() {
         const ft = cv(r, COLS.facilityType) || '(null/vazio)';
         ftDist[ft] = (ftDist[ft] || 0) + 1;
       });
-      const initSample = allRows.slice(0,3).map(r => cv(r, COLS.initDate)).join(' | ');
+      const initSample    = allRows.slice(0,3).map(r => cv(r, COLS.initDate)).join(' | ');
+      const carrierSample = [...new Set(allRows.slice(0,20).map(r => cv(r, COLS.carrier)).filter(Boolean))].slice(0,5).join(', ');
       const debugLines = [
         `<b>Linhas:</b> ${allRows.length}`,
-        `<b>carrier:</b> <code>${COLS.carrier||'NÃO DETECTADO'}</code>`,
+        `<b>carrier (coluna):</b> <code>${COLS.carrier||'NÃO DETECTADO'}</code> — amostras: <i>${carrierSample||'—'}</i>`,
         `<b>facilityId:</b> <code>${COLS.facilityId||'NÃO DETECTADO'}</code>`,
         `<b>facilityType:</b> <code>${COLS.facilityType||'NÃO DETECTADO'}</code>`,
         `<b>initDate:</b> <code>${COLS.initDate||'NÃO DETECTADO'}</code> — amostras: <i>${initSample||'—'}</i>`,
