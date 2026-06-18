@@ -49,6 +49,25 @@
     .chart-section .sub { font-size: .78rem; color: #8090b8; margin-bottom: 14px; }
     .chart-section canvas { max-height: 260px; }
 
+    /* IMPORT BAR GLOBAL */
+    .import-bar {
+      background: white; border-radius: 10px; padding: 12px 20px;
+      box-shadow: 0 3px 10px rgba(0,0,0,.07);
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .import-bar span.lbl { font-weight: 700; color: var(--azul); font-size: .9rem; }
+    .import-bar span.hint { font-size: .75rem; color: #8090b8; margin-left: 4px; }
+    .btn-import-global {
+      background: var(--verde); color: var(--azul); border: none;
+      border-radius: 6px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: .85rem;
+    }
+    .btn-import-global:hover { opacity: .85; }
+    .btn-clear-all {
+      background: #fde8e8; border: 1px solid #f5a0a0; color: #b71c1c;
+      border-radius: 6px; padding: 6px 14px; font-size: .85rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-clear-all:hover { background: #fad0d0; }
+
     /* TABLE SECTION */
     .tbl-section { background: white; border-radius: 12px; box-shadow: 0 3px 12px rgba(0,0,0,.08); overflow: hidden; }
     .tbl-header {
@@ -169,6 +188,14 @@
       <canvas id="mainChart"></canvas>
     </div>
 
+    <!-- IMPORTAÇÃO GLOBAL DE PLANEJADAS -->
+    <div class="import-bar">
+      <span class="lbl">Rotas Planejadas:</span>
+      <button class="btn-import-global" id="btnImportGlobal">&#8679; Importar CSV</button>
+      <button class="btn-clear-all" id="btnClearAll">&#10005; Limpar todas</button>
+      <span class="hint">Formato: ORIGEM ; PLANEJADAS &nbsp;|&nbsp; Vale para todos os gráficos tabela</span>
+    </div>
+
     <!-- TABELAS: geradas dinamicamente -->
     <div id="tables"></div>
 
@@ -215,7 +242,7 @@ const STATUS_STYLE = {
 const TABLES_DEF = [
   {
     key: 'SVC', label: 'SVC', accent: '#293358',
-    subtitle: 'Rotas no Serviço (facilityType nulo)',
+    subtitle: 'Service Center',
     origins: ['JL Castro','RodaCoop','COOPMETRO','PANTERA LOG TRAN','50 Mais','BRJTransportes','Kangu Logistics','WLS CARGO','Envios Extra'],
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
@@ -227,7 +254,7 @@ const TABLES_DEF = [
   },
   {
     key: 'XPT', label: 'XPT', accent: '#6c3483',
-    subtitle: 'Exchange Points (facilityType = exchange_point)',
+    subtitle: 'Exchange Points',
     origins: ['EPA1','EPA2','EPA3','EPA4','EPA5','EPA6','EPA7','EPA8','EPA9','ETO4'],
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
@@ -240,7 +267,7 @@ const TABLES_DEF = [
   },
   {
     key: 'NEX', label: 'NEX', accent: '#d35400',
-    subtitle: 'NEX (facilityType = nex)',
+    subtitle: 'NEX',
     origins: ['BRNPA26','BRNPA75','BRNPA193','BRNPA736','BRNPA11444','BRNPA11440','BRDPA11404','BRNPA769','BRNPA527','BRNPA240','BRNPA535','BRNPA11416','BRNPA11420','BRNPA11425','BRNPA11441'],
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
@@ -253,7 +280,7 @@ const TABLES_DEF = [
   },
   {
     key: 'DC', label: 'DC', accent: '#922b21',
-    subtitle: 'Delivery Cells (facilityType = delivery_cell)',
+    subtitle: 'Delivery Cells',
     origins: ['BRDPA11445','BRDPA11446','BRDPA11447','BRDPA11448','BRDPA11449','BRDPA193','BRDPA26','BRDPA11452'],
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
@@ -273,7 +300,6 @@ let allRows = [];
 let COLS    = {};
 let mainChart = null;
 let refreshTimer = null;
-let activeImportKey = null; // which table is importing
 
 // localStorage: { SVC: { 'JL Castro': {p:0,s:'',o:''}, ... }, XPT:{...}, ... }
 function loadLS() {
@@ -460,11 +486,6 @@ function buildTableSection(tDef) {
         <div class="tot-item"><div class="tl">Pendentes</div><div class="tv pend">${sumPend}</div></div>
       </div>
     </div>
-    <div class="tbl-actions">
-      <label>Rotas Planejadas:</label>
-      <button class="btn-import" data-key="${tDef.key}">&#8679; Importar CSV</button>
-      <button class="btn-clear-plan" data-key="${tDef.key}">&#10005; Limpar Planejadas</button>
-    </div>
     <div class="tbl-wrap">
       <table>
         <thead>
@@ -492,20 +513,6 @@ function buildTableSection(tDef) {
     </div>
   `;
 
-  // Bind import/clear buttons
-  section.querySelector('.btn-import').addEventListener('click', e => {
-    activeImportKey = e.currentTarget.dataset.key;
-    document.getElementById('csvFileInput').value = '';
-    document.getElementById('csvFileInput').click();
-  });
-  section.querySelector('.btn-clear-plan').addEventListener('click', e => {
-    const key = e.currentTarget.dataset.key;
-    const st = loadLS();
-    if (!st[key]) return;
-    tDef.origins.forEach(o => { if (st[key][o]) st[key][o].p = 0; });
-    saveLS(st);
-    refresh();
-  });
 
   // Build tbody
   const tbody = section.querySelector(`#tbody-${tDef.key}`);
@@ -579,40 +586,61 @@ function refresh() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CSV IMPORT (planejadas)
+// CSV IMPORT GLOBAL (planejadas — vale para todos os gráficos)
 // ═══════════════════════════════════════════════════════════
+// Monta um mapa global origin → tabela para lookup rápido
+function buildOriginMap() {
+  const map = {};
+  TABLES_DEF.forEach(t => t.origins.forEach(o => { map[o] = t.key; }));
+  return map;
+}
+
+document.getElementById('btnImportGlobal').addEventListener('click', () => {
+  document.getElementById('csvFileInput').value = '';
+  document.getElementById('csvFileInput').click();
+});
+
+document.getElementById('btnClearAll').addEventListener('click', () => {
+  const st = loadLS();
+  TABLES_DEF.forEach(t => {
+    t.origins.forEach(o => { if (st[t.key]?.[o]) st[t.key][o].p = 0; });
+  });
+  saveLS(st);
+  refresh();
+});
+
 document.getElementById('csvFileInput').addEventListener('change', e => {
   const file = e.target.files[0];
-  if (!file || !activeImportKey) return;
-  const tDef = TABLES_DEF.find(t => t.key === activeImportKey);
-  if (!tDef) return;
+  if (!file) return;
+  const originMap = buildOriginMap();
 
   Papa.parse(file, {
     header: true, skipEmptyLines: true,
+    delimiter: '', // auto-detect ; ou ,
     complete(result) {
-      const st = loadLS();
+      const st   = loadLS();
       const rows = result.data;
-      if (!rows.length) return;
+      if (!rows.length) { alert('CSV vazio ou sem linhas válidas.'); return; }
 
-      // detect columns: first col = origin, second col = planejadas
-      const fields = result.meta.fields || [];
+      const fields      = result.meta.fields || [];
       const originField = fields[0];
-      const planField   = fields.find(f => f.toUpperCase().includes('PLAN') || f === fields[1]);
+      const planField   = fields.find(f => f.toUpperCase().includes('PLAN')) || fields[1];
 
       let imported = 0;
       rows.forEach(row => {
         const origin = String(row[originField] || '').trim();
-        const plan   = parseInt(row[planField]) || 0;
-        if (tDef.origins.includes(origin) && plan >= 0) {
-          getRow(st, activeImportKey, origin).p = plan;
+        const plan   = Math.max(0, parseInt(row[planField]) || 0);
+        const key    = originMap[origin];
+        if (key) {
+          getRow(st, key, origin).p = plan;
           imported++;
         }
       });
       saveLS(st);
       refresh();
-      alert(`Importado: ${imported} origens atualizadas em ${activeImportKey}.`);
+      alert(`Importado: ${imported} origem(ns) atualizada(s) em todos os gráficos tabela.`);
     },
-    error() { alert('Erro ao ler o CSV. Verifique o formato.'); }
+    error() { alert('Erro ao ler o CSV. Verifique o formato (ORIGEM ; PLANEJADAS).'); }
   });
 });
 
