@@ -302,25 +302,36 @@ function today() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 }
-// Aceita Unix timestamp (segundos ou ms), ISO (2026-06-18T...) e DD/MM/YYYY
-function matchesToday(val) {
+// Converte qualquer formato de data para Date object
+function toDate(val) {
   const s = String(val || '').trim();
-  if (!s || nullish(s)) return false;
+  if (!s || nullish(s)) return null;
   const num = Number(s);
   if (!isNaN(num) && /^\d+$/.test(s)) {
-    // Unix timestamp: >1e12 = milissegundos, senão segundos
-    const ms = num > 1e12 ? num : num * 1000;
-    const d  = new Date(ms);
-    const now = new Date();
-    return d.getFullYear() === now.getFullYear() &&
-           d.getMonth()    === now.getMonth()    &&
-           d.getDate()     === now.getDate();
+    // Unix timestamp: 10 dígitos = segundos → *1000; 13 dígitos = ms
+    return new Date(num > 1e12 ? num : num * 1000);
   }
-  const now  = new Date();
-  const yyyy = now.getFullYear();
-  const mm   = String(now.getMonth()+1).padStart(2,'0');
-  const dd   = String(now.getDate()).padStart(2,'0');
-  return s.startsWith(`${yyyy}-${mm}-${dd}`) || s.startsWith(`${dd}/${mm}/${yyyy}`);
+  return new Date(s); // ISO, etc.
+}
+
+// Formata para DD/MM/AAAA (fuso local do navegador)
+function formatarDataBrasileira(val) {
+  const d = toDate(val);
+  if (!d || isNaN(d.getTime())) return String(val || '—');
+  const dd   = String(d.getDate()).padStart(2,'0');
+  const mm   = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+// Retorna true se val representa o dia de hoje (horário local)
+function matchesToday(val) {
+  const d = toDate(val);
+  if (!d || isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+         d.getMonth()    === now.getMonth()    &&
+         d.getDate()     === now.getDate();
 }
 
 function detectCols(columns) {
@@ -626,7 +637,10 @@ function loadData() {
         const ft = cv(r, COLS.facilityType) || '(null/vazio)';
         ftDist[ft] = (ftDist[ft] || 0) + 1;
       });
-      const initSample    = allRows.slice(0,3).map(r => cv(r, COLS.initDate)).join(' | ');
+      const initSample    = allRows.slice(0,3).map(r => {
+        const raw = cv(r, COLS.initDate);
+        return `${raw} → ${formatarDataBrasileira(raw)}`;
+      }).join(' | ');
       const carrierSample = [...new Set(allRows.slice(0,20).map(r => cv(r, COLS.carrier)).filter(Boolean))].slice(0,5).join(', ');
       const debugLines = [
         `<b>Linhas:</b> ${allRows.length}`,
