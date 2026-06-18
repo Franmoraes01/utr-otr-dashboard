@@ -156,6 +156,12 @@
 
   <div id="dashboard" style="display:none;">
 
+    <!-- DEBUG INFO -->
+    <details style="background:#1e2433;color:#acdb26;border-radius:8px;padding:10px 16px;font-size:.75rem;font-family:Consolas,monospace;line-height:1.7;">
+      <summary style="cursor:pointer;font-weight:700;color:#FFE600;">🔍 Diagnóstico de colunas detectadas (expandir)</summary>
+      <div id="debugInfo" style="margin-top:8px;"></div>
+    </details>
+
     <!-- GRÁFICO PRINCIPAL -->
     <div class="chart-section">
       <h2>Visão Geral — Rotas por Tipo</h2>
@@ -215,7 +221,7 @@ const TABLES_DEF = [
       return rows.filter(r =>
         cv(r, C.carrier) === origin &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
-        cv(r, C.facilityId) === 'SPA1'
+        nullish(cv(r, C.facilityType))
       ).length;
     }
   },
@@ -228,7 +234,7 @@ const TABLES_DEF = [
         cv(r, C.facilityId) === origin &&
         !nullish(cv(r, C.cluster)) &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
-        cv(r, C.facilityType) === 'exchange_point'
+        cv(r, C.facilityType).toLowerCase() === 'exchange_point'
       ).length;
     }
   },
@@ -239,9 +245,9 @@ const TABLES_DEF = [
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
         cv(r, C.facilityId) === origin &&
-        dateStr(cv(r, C.initDate)) === today &&
+        matchesToday(cv(r, C.initDate)) &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
-        cv(r, C.facilityType) === 'nex'
+        cv(r, C.facilityType).toLowerCase() === 'nex'
       ).length;
     }
   },
@@ -252,9 +258,9 @@ const TABLES_DEF = [
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
         cv(r, C.facilityId) === origin &&
-        dateStr(cv(r, C.initDate)) === today &&
+        matchesToday(cv(r, C.initDate)) &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
-        cv(r, C.facilityType) === 'delivery_cell'
+        cv(r, C.facilityType).toLowerCase() === 'delivery_cell'
       ).length;
     }
   }
@@ -286,20 +292,42 @@ function getRow(state, key, origin) {
 // ═══════════════════════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════════════════════
-function cv(row, col) { return col ? String(row[col] ?? '') : ''; }
-function nullish(v) { return v === '' || v === null || v === undefined || v.toLowerCase() === 'null'; }
+function cv(row, col) { return col ? String(row[col] ?? '').trim() : ''; }
+function nullish(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === '' || s === 'null' || s === 'nan' || s === 'undefined' || s === 'none';
+}
 function dateStr(v) { return (v || '').substring(0, 10); }
-function today() { return new Date().toISOString().substring(0, 10); }
+function today() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+// Aceita ISO (2026-06-18T...), YYYY-MM-DD e DD/MM/YYYY
+function matchesToday(val) {
+  const s = String(val || '').trim();
+  if (!s || nullish(s)) return false;
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm   = String(now.getMonth()+1).padStart(2,'0');
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const iso  = `${yyyy}-${mm}-${dd}`;  // YYYY-MM-DD
+  const br   = `${dd}/${mm}/${yyyy}`;  // DD/MM/YYYY
+  return s.startsWith(iso) || s.startsWith(br);
+}
 
 function detectCols(columns) {
-  const f = (...frags) => columns.find(c => frags.every(f => c.toLowerCase().includes(f.toLowerCase()))) || '';
+  const lc = columns.map(c => c.toLowerCase());
+  const f = (...frags) => {
+    const idx = lc.findIndex(c => frags.every(f => c.includes(f.toLowerCase())));
+    return idx >= 0 ? columns[idx] : '';
+  };
   return {
-    carrier:    f('carrier'),
-    status:     f('status'),
-    facilityId: f('facilityid') || f('facility.id') || f('facility_id'),
+    carrier:      f('carrier'),
+    status:       f('status'),
+    facilityId:   f('facilityid') || f('facility.id') || f('facility_id') || f('facilityid'),
     facilityType: f('facilitytype') || f('facility.type') || f('facility_type'),
-    cluster:    f('cluster'),
-    initDate:   f('initdate') || f('init.date') || f('init_date'),
+    cluster:      f('cluster'),
+    initDate:     f('initdate') || f('init.date') || f('init_date') || f('startdate') || f('start.date') || f('routedate'),
   };
 }
 
@@ -583,6 +611,24 @@ function loadData() {
       }
       allRows = result.data;
       COLS    = detectCols(result.meta.fields || Object.keys(allRows[0]));
+
+      // distribuição facilityType para diagnóstico
+      const ftDist = {};
+      allRows.forEach(r => {
+        const ft = cv(r, COLS.facilityType) || '(null/vazio)';
+        ftDist[ft] = (ftDist[ft] || 0) + 1;
+      });
+      const initSample = allRows.slice(0,3).map(r => cv(r, COLS.initDate)).join(' | ');
+      const debugLines = [
+        `<b>Linhas:</b> ${allRows.length}`,
+        `<b>carrier:</b> <code>${COLS.carrier||'NÃO DETECTADO'}</code>`,
+        `<b>facilityId:</b> <code>${COLS.facilityId||'NÃO DETECTADO'}</code>`,
+        `<b>facilityType:</b> <code>${COLS.facilityType||'NÃO DETECTADO'}</code>`,
+        `<b>initDate:</b> <code>${COLS.initDate||'NÃO DETECTADO'}</code> — amostras: <i>${initSample||'—'}</i>`,
+        `<b>cluster:</b> <code>${COLS.cluster||'NÃO DETECTADO'}</code>`,
+        `<b>facilityType distribuição:</b> ${Object.entries(ftDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+      ];
+      document.getElementById('debugInfo').innerHTML = debugLines.join('<br>');
 
       document.getElementById('dashboard').style.display = '';
       document.getElementById('statusMsg').style.display = 'none';
