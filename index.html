@@ -168,6 +168,7 @@
     <option value="300">5 min</option>
   </select>
   <span class="last-update" id="lastUpdate">—</span>
+  <span id="syncStatus" style="font-size:.75rem;transition:color .3s;margin-left:6px;"></span>
 </div>
 
 <main>
@@ -213,7 +214,11 @@ const GITHUB_OWNER  = 'Franmoraes01';
 const GITHUB_REPO   = 'utr-otr-dashboard';
 const GITHUB_BRANCH = 'main';
 const BASE_CSV      = 'Logistics_api';
-const LS_KEY        = 'meli_dashboard_v3';
+const LS_KEY       = 'meli_dashboard_v3';
+// ↓ Cole aqui a URL do seu Firebase Realtime Database (sem barra no final)
+// Ex: https://meu-projeto-default-rtdb.firebaseio.com
+const FIREBASE_URL  = 'https://utr-otr-dashboard-default-rtdb.firebaseio.com';
+const FIREBASE_PATH = '/dashboard-spa1.json';
 
 const STATUS_OPTS = [
   '', 'ANTECIPAÇÃO', 'EM EXPEDIÇÃO', 'A CAMINHO XPT', 'A CAMINHO NEX',
@@ -298,8 +303,11 @@ const TABLES_DEF = [
 // ═══════════════════════════════════════════════════════════
 let allRows = [];
 let COLS    = {};
-let mainChart = null;
+let mainChart   = null;
 let refreshTimer = null;
+let pushTimer   = null;   // debounce antes de salvar no Firebase
+let _fromRemote = false;  // impede loop: saveLS vindo do Firebase não re-dispara push
+let evtSource   = null;   // SSE connection ao Firebase
 
 // localStorage: { SVC: { 'JL Castro': {p:0,s:'',o:''}, ... }, XPT:{...}, ... }
 function loadLS() {
@@ -308,6 +316,7 @@ function loadLS() {
 }
 function saveLS(state) {
   localStorage.setItem(LS_KEY, JSON.stringify(state));
+  if (!_fromRemote) schedulePush();
 }
 function getRow(state, key, origin) {
   if (!state[key]) state[key] = {};
@@ -377,6 +386,87 @@ function detectCols(columns) {
     cluster:      exact('cluster')      || f('cluster'),
     initDate:     exact('initDate')     || exact('initdate')     || f('initdate')     || f('init.date')     || f('init_date'),
   };
+}
+
+// ═══════════════════════════════════════════════════════════
+// SYNC FIREBASE — tempo real entre todos os usuários
+// ═══════════════════════════════════════════════════════════
+const FB = FIREBASE_URL + FIREBASE_PATH;
+
+function setSyncStatus(msg, color) {
+  const el = document.getElementById('syncStatus');
+  if (el) { el.textContent = msg; el.style.color = color || '#8090b8'; }
+}
+
+// Grava estado no Firebase (PUT substitui o nó inteiro)
+async function pushStateToFirebase() {
+  setSyncStatus('Salvando…', '#f39c12');
+  try {
+    const r = await fetch(FB, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loadLS()),
+    });
+    if (r.ok) {
+      setSyncStatus('✓ Sincronizado', '#27ae60');
+      setTimeout(() => setSyncStatus('', ''), 3000);
+    } else {
+      setSyncStatus('⚠ Erro ao salvar', '#e74c3c');
+    }
+  } catch {
+    setSyncStatus('⚠ Sem conexão', '#e74c3c');
+  }
+}
+
+// Debounce 2s após última mudança do usuário
+function schedulePush() {
+  if (_fromRemote) return;
+  clearTimeout(pushTimer);
+  setSyncStatus('Aguardando…', '#8090b8');
+  pushTimer = setTimeout(pushStateToFirebase, 2000);
+}
+
+// SSE — Firebase empurra mudanças em <1s sem polling
+function connectFirebase() {
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  evtSource = new EventSource(FB);
+  let firstPut = true;
+
+  evtSource.addEventListener('put', e => {
+    try {
+      const payload = JSON.parse(e.data);
+      if (!payload || !payload.data) return;
+      if (firstPut) { firstPut = false; return; } // ignora carga inicial
+      const tag = document.activeElement?.tagName || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      _fromRemote = true;
+      saveLS(payload.data);
+      _fromRemote = false;
+      refresh();
+      setSyncStatus('↻ Atualizado por outro usuário', '#3498db');
+      setTimeout(() => setSyncStatus('', ''), 4000);
+    } catch {}
+  });
+
+  evtSource.onerror = () => setSyncStatus('⚠ Reconectando…', '#f39c12');
+}
+
+// Carrega estado inicial e conecta SSE
+async function initStateFromFirebase() {
+  try {
+    const r = await fetch(FB, { cache: 'no-store' });
+    if (r.ok) {
+      const state = await r.json();
+      if (state && typeof state === 'object') {
+        _fromRemote = true;
+        saveLS(state);
+        _fromRemote = false;
+      }
+    }
+  } catch {}
+  connectFirebase();
+  setSyncStatus('● Online', '#27ae60');
+  setTimeout(() => setSyncStatus('', ''), 3000);
 }
 
 function csvUrl(scId) {
@@ -738,6 +828,7 @@ document.getElementById('refreshInterval').addEventListener('change', scheduleRe
 
 loadData();
 scheduleRefresh();
+initStateFromFirebase().then(() => refresh()); // carrega estado compartilhado e abre SSE
 </script>
 </body>
 </html>
