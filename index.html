@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — Monitoramento Logístico</title>
+  <title>Principal — Monitoramento Logístico</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
@@ -12,436 +12,593 @@
       --azul:    #293358;
       --fundo:   #f0f3e4;
       --amarelo: #FFE600;
-      --cinza:   #e1e4d1;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--fundo); color: var(--azul); }
 
-    /* ── HEADER ── */
-    .header-bar {
-      background: var(--amarelo);
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .header-bar h1 { font-size: 1.25rem; font-weight: 700; color: var(--azul); letter-spacing: .5px; }
-    .badge {
-      background: var(--azul); color: white;
-      font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px;
-    }
+    /* HEADER */
+    .header-bar { background: var(--amarelo); padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+    .header-bar h1 { font-size: 1.25rem; font-weight: 700; color: var(--azul); }
+    .badge { background: var(--azul); color: white; font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
 
-    /* ── NAV ── */
-    .nav-bar {
-      background: #1e2845; display: flex; align-items: center; padding: 0 24px;
-    }
-    .nav-bar a {
-      display: inline-block; padding: 10px 20px; color: #8090b8;
-      text-decoration: none; font-size: .88rem; font-weight: 600;
-      border-bottom: 3px solid transparent; transition: all .15s;
-    }
+    /* NAV */
+    .nav-bar { background: #1e2845; display: flex; align-items: center; padding: 0 24px; }
+    .nav-bar a { display: inline-block; padding: 10px 20px; color: #8090b8; text-decoration: none; font-size: .88rem; font-weight: 600; border-bottom: 3px solid transparent; transition: all .15s; }
     .nav-bar a:hover { color: #cdd4f0; }
     .nav-bar a.active { color: var(--amarelo); border-bottom-color: var(--amarelo); }
 
-    /* ── TOOLBAR ── */
-    .toolbar {
-      background: var(--azul); padding: 12px 24px;
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    }
+    /* TOOLBAR */
+    .toolbar { background: var(--azul); padding: 12px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .toolbar label { color: #cdd4f0; font-size: .85rem; }
-    .toolbar select, .toolbar input {
-      border: none; border-radius: 6px; padding: 6px 10px; font-size: .9rem;
-      background: white; color: var(--azul); outline: none;
-    }
-    .toolbar button {
-      background: var(--verde); color: var(--azul); border: none;
-      border-radius: 6px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: .9rem;
-      transition: opacity .15s;
-    }
+    .toolbar select { border: none; border-radius: 6px; padding: 6px 10px; font-size: .9rem; background: white; color: var(--azul); outline: none; }
+    .toolbar button { background: var(--verde); color: var(--azul); border: none; border-radius: 6px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: .9rem; transition: opacity .15s; }
     .toolbar button:hover { opacity: .85; }
-    .toolbar button.sec {
-      background: transparent; border: 1px solid #8090b8; color: #cdd4f0;
-    }
     .last-update { margin-left: auto; color: #8090b8; font-size: .78rem; }
 
-    /* ── MAIN ── */
-    main { padding: 20px 24px; }
+    /* MAIN */
+    main { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
 
-    /* ── CARDS ── */
-    .cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
-    .card {
-      flex: 1 1 160px; min-width: 140px;
-      background: white; border-radius: 10px; padding: 16px 18px;
-      box-shadow: 0 3px 10px rgba(0,0,0,.08);
-      border-left: 4px solid var(--verde);
-    }
-    .card .label { font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #6b7a9a; margin-bottom: 6px; }
-    .card .value { font-size: 1.7rem; font-weight: 700; color: var(--azul); }
-    .card .sub   { font-size: .78rem; color: #8090b8; margin-top: 2px; }
-    .card.warn { border-left-color: #f39c12; }
-    .card.danger { border-left-color: #e74c3c; }
-    .card.ok { border-left-color: var(--verde); }
+    /* STATUS MSG */
+    #statusMsg { text-align: center; padding: 40px; color: #8090b8; font-size: .95rem; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #cdd; border-top-color: var(--azul); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── CHARTS ── */
-    .charts { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-    .chart-box {
-      flex: 1 1 280px;
-      background: white; border-radius: 10px; padding: 16px;
-      box-shadow: 0 3px 10px rgba(0,0,0,.08);
-    }
-    .chart-box h3 { font-size: .85rem; color: #6b7a9a; text-transform: uppercase; margin-bottom: 10px; }
-    .chart-box canvas { max-height: 220px; }
+    /* CHART SECTION */
+    .chart-section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 3px 12px rgba(0,0,0,.08); }
+    .chart-section h2 { font-size: .95rem; font-weight: 700; color: var(--azul); margin-bottom: 4px; }
+    .chart-section .sub { font-size: .78rem; color: #8090b8; margin-bottom: 14px; }
+    .chart-section canvas { max-height: 260px; }
 
-    /* ── TABLE ── */
-    .table-wrap {
-      background: white; border-radius: 10px; overflow: hidden;
-      box-shadow: 0 3px 10px rgba(0,0,0,.08);
+    /* TABLE SECTION */
+    .tbl-section { background: white; border-radius: 12px; box-shadow: 0 3px 12px rgba(0,0,0,.08); overflow: hidden; }
+    .tbl-header {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      border-left: 5px solid var(--accent, #293358);
+      flex-wrap: wrap;
     }
-    .table-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 18px; border-bottom: 1px solid #eee;
+    .tbl-header .type-badge {
+      font-size: .8rem; font-weight: 800; padding: 4px 10px; border-radius: 6px;
+      background: var(--accent, #293358); color: white; letter-spacing: .5px;
     }
-    .table-header h2 { font-size: .95rem; font-weight: 700; color: var(--azul); }
-    #searchInput {
-      border: 1px solid #dde; border-radius: 6px; padding: 6px 12px;
-      font-size: .85rem; width: 220px; outline: none;
-    }
-    .table-container { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .tbl-header h3 { font-size: .95rem; font-weight: 700; color: var(--azul); }
+    .tbl-header .totals { margin-left: auto; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .tot-item { text-align: center; }
+    .tot-item .tl { font-size: .65rem; text-transform: uppercase; color: #8090b8; }
+    .tot-item .tv { font-size: 1.1rem; font-weight: 700; }
+    .tv.plan  { color: var(--azul); }
+    .tv.exped { color: #27ae60; }
+    .tv.pend  { color: #c0392b; }
+
+    .tbl-actions { padding: 8px 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee; }
+    .tbl-actions label { font-size: .8rem; color: #6b7a9a; }
+    .btn-import { background: #f0f3e4; border: 1px solid #c8d4a0; border-radius: 6px; padding: 5px 12px; font-size: .8rem; color: var(--azul); cursor: pointer; font-weight: 600; transition: background .12s; }
+    .btn-import:hover { background: #e0e9c4; }
+    .btn-clear-plan { background: #fde8e8; border: 1px solid #f5a0a0; border-radius: 6px; padding: 5px 12px; font-size: .8rem; color: #b71c1c; cursor: pointer; font-weight: 600; }
+    .btn-clear-plan:hover { background: #fad0d0; }
+
+    /* TABLE */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 860px; }
     thead th {
       background: var(--azul); color: white; padding: 10px 12px;
-      text-align: left; white-space: nowrap; cursor: pointer; user-select: none;
-      position: sticky; top: 0;
+      text-align: center; white-space: nowrap; font-size: .75rem;
+      text-transform: uppercase; letter-spacing: .3px;
     }
-    thead th:hover { background: #3e4b7a; }
-    thead th.sorted-asc::after  { content: ' ▲'; font-size: .65rem; }
-    thead th.sorted-desc::after { content: ' ▼'; font-size: .65rem; }
+    thead th:first-child, thead th:nth-child(2) { text-align: left; }
     tbody tr:nth-child(even) { background: #f8f9f4; }
     tbody tr:hover { background: #eef3d6; }
-    tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
-    .pagination {
-      display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-      padding: 12px 18px; font-size: .82rem; color: #6b7a9a;
-    }
-    .pagination button {
-      border: 1px solid #dde; background: white; color: var(--azul);
-      border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: .82rem;
-    }
-    .pagination button:disabled { opacity: .4; cursor: default; }
+    tbody td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; text-align: center; }
+    tbody td:first-child, tbody td:nth-child(2) { text-align: left; font-weight: 600; }
+    tfoot td { padding: 8px 10px; font-weight: 700; background: #f0f3e4; border-top: 2px solid #c8d4a0; font-size: .82rem; text-align: center; }
+    tfoot td:first-child, tfoot td:nth-child(2) { text-align: left; }
 
-    /* ── STATUS ── */
-    #statusMsg {
-      text-align: center; padding: 40px; color: #8090b8; font-size: .95rem;
-    }
+    /* BADGE ID ORIGEM */
+    .id-badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: .72rem; font-weight: 800; color: white; background: var(--accent, #293358); }
 
-    /* ── SPINNER ── */
-    .spinner {
-      display: inline-block; width: 18px; height: 18px;
-      border: 3px solid #cdd; border-top-color: var(--azul);
-      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px;
+    /* INPUTS */
+    input.plan-input {
+      width: 80px; text-align: center; border: 1px solid #dde; border-radius: 6px;
+      padding: 5px 6px; font-size: .85rem; font-family: inherit; color: var(--azul);
+      background: white; transition: border-color .12s;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    input.plan-input:focus { outline: none; border-color: var(--verde); }
+
+    select.status-sel {
+      border: 1px solid #dde; border-radius: 6px; padding: 5px 6px;
+      font-size: .75rem; font-family: inherit; cursor: pointer; width: 160px;
+      font-weight: 600; transition: background .12s;
+    }
+    select.status-sel:focus { outline: none; }
+
+    input.obs-input {
+      border: 1px solid #dde; border-radius: 6px; padding: 5px 8px;
+      font-size: .8rem; font-family: inherit; width: 100%; min-width: 140px;
+      background: white; transition: border-color .12s;
+    }
+    input.obs-input:focus { outline: none; border-color: var(--verde); }
+
+    /* PENDENTES COLOR */
+    .pend-pos { color: #c0392b; font-weight: 700; }
+    .pend-zero { color: #27ae60; font-weight: 700; }
+    .pend-neg { color: #1565a0; font-weight: 700; }
+    .pend-na { color: #aaa; }
   </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header-bar">
   <h1>MONITORAMENTO LOGÍSTICO</h1>
   <span class="badge">Mercado Envios</span>
 </div>
 
-<!-- NAV -->
 <div class="nav-bar">
   <a href="index.html" class="active">&#9632; Principal</a>
   <a href="carriers.html">&#9651; Transportadoras</a>
 </div>
 
-<!-- TOOLBAR -->
 <div class="toolbar">
   <label>Service Center:</label>
   <select id="scSelect">
     <option value="SPA1_SPA2">SPA1 + SPA2</option>
   </select>
-
   <button id="btnLoad">&#8635; Atualizar</button>
-
-  <label style="margin-left:8px;">
-    <input type="checkbox" id="autoRefresh" checked /> Auto-refresh
-  </label>
+  <label style="margin-left:8px;"><input type="checkbox" id="autoRefresh" checked /> Auto-refresh</label>
   <select id="refreshInterval" style="width:auto;">
     <option value="60">1 min</option>
     <option value="120" selected>2 min</option>
     <option value="300">5 min</option>
   </select>
-
   <span class="last-update" id="lastUpdate">—</span>
 </div>
 
-<!-- MAIN -->
 <main>
   <div id="statusMsg"><span class="spinner"></span> Carregando dados...</div>
 
   <div id="dashboard" style="display:none;">
-    <!-- CARDS -->
-    <div class="cards" id="cards"></div>
 
-    <!-- CHARTS -->
-    <div class="charts" id="chartsRow">
-      <div class="chart-box">
-        <h3>Rotas por Checkpoint</h3>
-        <canvas id="chartCheckpoint"></canvas>
-      </div>
-      <div class="chart-box">
-        <h3>Distribuição por SC</h3>
-        <canvas id="chartSC"></canvas>
-      </div>
+    <!-- GRÁFICO PRINCIPAL -->
+    <div class="chart-section">
+      <h2>Visão Geral — Rotas por Tipo</h2>
+      <div class="sub">Planejadas × Expedidas × Pendentes — SVC / XPT / NEX / DC</div>
+      <canvas id="mainChart"></canvas>
     </div>
 
-    <!-- TABLE -->
-    <div class="table-wrap">
-      <div class="table-header">
-        <h2 id="tableTitle">Rotas</h2>
-        <input id="searchInput" type="text" placeholder="Buscar..." oninput="applyFilter()" />
-      </div>
-      <div class="table-container">
-        <table id="mainTable">
-          <thead id="thead"></thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-      <div class="pagination">
-        <span id="pageInfo"></span>
-        <button id="btnPrev" onclick="changePage(-1)">&#8592; Anterior</button>
-        <button id="btnNext" onclick="changePage(1)">Próxima &#8594;</button>
-      </div>
-    </div>
+    <!-- TABELAS: geradas dinamicamente -->
+    <div id="tables"></div>
+
   </div>
 </main>
 
+<!-- FILE INPUT OCULTO (import CSV planejadas) -->
+<input type="file" id="csvFileInput" accept=".csv" style="display:none" />
+
 <script>
-// ── CONFIG ────────────────────────────────────────────────────
-const OWNER  = 'Franmoraes01';
-const REPO   = 'utr-otr-dashboard';
-const BRANCH = 'main';
-const BASE   = 'Logistics_api';
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const GITHUB_OWNER  = 'Franmoraes01';
+const GITHUB_REPO   = 'utr-otr-dashboard';
+const GITHUB_BRANCH = 'main';
+const BASE_CSV      = 'Logistics_api';
+const LS_KEY        = 'meli_dashboard_v3';
 
-function csvUrl(scId) {
-  const file = `${BASE}_${scId}.csv`;
-  return `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${file}?t=${Date.now()}`;
-}
-
-// ── STATE ─────────────────────────────────────────────────────
-let allRows     = [];
-let filteredRows = [];
-let columns     = [];
-let sortCol     = -1;
-let sortAsc     = true;
-let currentPage = 1;
-const PAGE_SIZE = 50;
-
-let chartCheckpoint = null;
-let chartSC         = null;
-let refreshTimer    = null;
-
-// ── CARDS CONFIG ──────────────────────────────────────────────
-// Tentamos detectar colunas relevantes dinamicamente
-const CARD_DEFS = [
-  { label: 'Total Rotas',       fn: rows => rows.length,                            cls: '' },
-  { label: 'Ativas',            fn: rows => countCheckpoint(rows, 'active'),         cls: 'ok' },
-  { label: 'Fechadas',          fn: rows => countCheckpoint(rows, 'close'),          cls: '' },
-  { label: 'No Destino',        fn: rows => countCheckpoint(rows, 'at_destination'), cls: 'warn' },
-  { label: 'Retorno',           fn: rows => countCheckpoint(rows, 'return'),         cls: 'danger' },
+const STATUS_OPTS = [
+  '', 'ANTECIPAÇÃO', 'EM EXPEDIÇÃO', 'A CAMINHO XPT', 'A CAMINHO NEX',
+  'RISCO NOSHOW', 'NO SHOW', 'SEM RISCO NOSHOW', 'SUPRIU ROTA',
+  'REOFERTA', 'DOBRA ALINHADA', 'DRIVER A CAMINHO', 'SEM ATIVIDADE', 'ERRO OPERACIONAL'
 ];
 
-function colFind(row, fragments) {
-  const k = Object.keys(row).find(c =>
-    fragments.every(f => c.toLowerCase().includes(f.toLowerCase()))
-  );
-  return k ? row[k] : undefined;
+const STATUS_STYLE = {
+  '':                  { bg: '#f5f5f5', fg: '#888' },
+  'ANTECIPAÇÃO':       { bg: '#d6eeff', fg: '#1565a0' },
+  'EM EXPEDIÇÃO':      { bg: '#e8f8c0', fg: '#3d6b00' },
+  'A CAMINHO XPT':     { bg: '#e8d6ff', fg: '#5c1a8f' },
+  'A CAMINHO NEX':     { bg: '#d5f5e9', fg: '#0e6b44' },
+  'RISCO NOSHOW':      { bg: '#fff0d6', fg: '#a06000' },
+  'NO SHOW':           { bg: '#fde8e8', fg: '#b71c1c' },
+  'SEM RISCO NOSHOW':  { bg: '#e8f8c0', fg: '#3d6b00' },
+  'SUPRIU ROTA':       { bg: '#d5f5e9', fg: '#0e6b44' },
+  'REOFERTA':          { bg: '#fff0d6', fg: '#a06000' },
+  'DOBRA ALINHADA':    { bg: '#d6eeff', fg: '#1565a0' },
+  'DRIVER A CAMINHO':  { bg: '#ede8ff', fg: '#4a148c' },
+  'SEM ATIVIDADE':     { bg: '#eeeeee', fg: '#555' },
+  'ERRO OPERACIONAL':  { bg: '#fde8e8', fg: '#b71c1c' },
+};
+
+// Definições das 4 tabelas
+const TABLES_DEF = [
+  {
+    key: 'SVC', label: 'SVC', accent: '#293358',
+    subtitle: 'Rotas no Serviço (facilityType nulo)',
+    origins: ['JL Castro','RodaCoop','COOPMETRO','PANTERA LOG TRAN','50 Mais','BRJTransportes','Kangu Logistics','WLS CARGO','Envios Extra'],
+    countFn(rows, origin, C, today) {
+      return rows.filter(r =>
+        cv(r, C.carrier) === origin &&
+        cv(r, C.status).toLowerCase() !== 'planned' &&
+        cv(r, C.facilityId) === 'SPA1'
+      ).length;
+    }
+  },
+  {
+    key: 'XPT', label: 'XPT', accent: '#6c3483',
+    subtitle: 'Exchange Points (facilityType = exchange_point)',
+    origins: ['EPA1','EPA2','EPA3','EPA4','EPA5','EPA6','EPA7','EPA8','EPA9','ETO4'],
+    countFn(rows, origin, C, today) {
+      return rows.filter(r =>
+        cv(r, C.facilityId) === origin &&
+        !nullish(cv(r, C.cluster)) &&
+        cv(r, C.status).toLowerCase() !== 'planned' &&
+        cv(r, C.facilityType) === 'exchange_point'
+      ).length;
+    }
+  },
+  {
+    key: 'NEX', label: 'NEX', accent: '#d35400',
+    subtitle: 'NEX (facilityType = nex)',
+    origins: ['BRNPA26','BRNPA75','BRNPA193','BRNPA736','BRNPA11444','BRNPA11440','BRDPA11404','BRNPA769','BRNPA527','BRNPA240','BRNPA535','BRNPA11416','BRNPA11420','BRNPA11425','BRNPA11441'],
+    countFn(rows, origin, C, today) {
+      return rows.filter(r =>
+        cv(r, C.facilityId) === origin &&
+        dateStr(cv(r, C.initDate)) === today &&
+        cv(r, C.status).toLowerCase() !== 'planned' &&
+        cv(r, C.facilityType) === 'nex'
+      ).length;
+    }
+  },
+  {
+    key: 'DC', label: 'DC', accent: '#922b21',
+    subtitle: 'Delivery Cells (facilityType = delivery_cell)',
+    origins: ['BRDPA11445','BRDPA11446','BRDPA11447','BRDPA11448','BRDPA11449','BRDPA193','BRDPA26','BRDPA11452'],
+    countFn(rows, origin, C, today) {
+      return rows.filter(r =>
+        cv(r, C.facilityId) === origin &&
+        dateStr(cv(r, C.initDate)) === today &&
+        cv(r, C.status).toLowerCase() !== 'planned' &&
+        cv(r, C.facilityType) === 'delivery_cell'
+      ).length;
+    }
+  }
+];
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let allRows = [];
+let COLS    = {};
+let mainChart = null;
+let refreshTimer = null;
+let activeImportKey = null; // which table is importing
+
+// localStorage: { SVC: { 'JL Castro': {p:0,s:'',o:''}, ... }, XPT:{...}, ... }
+function loadLS() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveLS(state) {
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+function getRow(state, key, origin) {
+  if (!state[key]) state[key] = {};
+  if (!state[key][origin]) state[key][origin] = { p: 0, s: '', o: '' };
+  return state[key][origin];
 }
 
-function countCheckpoint(rows, keyword) {
-  // busca em qualquer coluna que contenha "checkpoint" ou "status"
-  return rows.filter(r => {
-    const val = colFind(r, ['checkpoint']) || colFind(r, ['status']) || '';
-    return String(val).toLowerCase().includes(keyword);
-  }).length;
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
+function cv(row, col) { return col ? String(row[col] ?? '') : ''; }
+function nullish(v) { return v === '' || v === null || v === undefined || v.toLowerCase() === 'null'; }
+function dateStr(v) { return (v || '').substring(0, 10); }
+function today() { return new Date().toISOString().substring(0, 10); }
+
+function detectCols(columns) {
+  const f = (...frags) => columns.find(c => frags.every(f => c.toLowerCase().includes(f.toLowerCase()))) || '';
+  return {
+    carrier:    f('carrier'),
+    status:     f('status'),
+    facilityId: f('facilityid') || f('facility.id') || f('facility_id'),
+    facilityType: f('facilitytype') || f('facility.type') || f('facility_type'),
+    cluster:    f('cluster'),
+    initDate:   f('initdate') || f('init.date') || f('init_date'),
+  };
 }
 
-// ── LOAD ──────────────────────────────────────────────────────
-async function loadData() {
-  const scId = document.getElementById('scSelect').value;
-  setStatus('<span class="spinner"></span> Carregando ' + scId + '...');
+function csvUrl(scId) {
+  return `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${BASE_CSV}_${scId}.csv?t=${Date.now()}`;
+}
 
-  Papa.parse(csvUrl(scId), {
-    download: true,
-    header: true,
-    delimiter: ';',
-    skipEmptyLines: true,
-    complete(result) {
-      if (!result.data || result.data.length === 0) {
-        setStatus('⚠️ Nenhum dado encontrado para ' + scId + '. O arquivo pode ainda não ter sido enviado.');
-        return;
-      }
-      allRows  = result.data;
-      columns  = result.meta.fields || Object.keys(allRows[0]);
-      applyFilter();
-      renderCards();
-      renderCharts();
-      document.getElementById('dashboard').style.display = '';
-      document.getElementById('statusMsg').style.display = 'none';
-      document.getElementById('lastUpdate').textContent =
-        'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+// ═══════════════════════════════════════════════════════════
+// SELECT STYLE
+// ═══════════════════════════════════════════════════════════
+function applyStatusStyle(sel) {
+  const st = STATUS_STYLE[sel.value] || STATUS_STYLE[''];
+  sel.style.background = st.bg;
+  sel.style.color      = st.fg;
+  sel.style.borderColor = st.bg === '#f5f5f5' ? '#dde' : st.fg + '55';
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHART PRINCIPAL
+// ═══════════════════════════════════════════════════════════
+function renderMainChart() {
+  const state = loadLS();
+  const td    = today();
+  const labels = TABLES_DEF.map(t => t.label);
+
+  const totPlan  = TABLES_DEF.map(t => t.origins.reduce((s, o) => s + (getRow(state, t.key, o).p || 0), 0));
+  const totExped = TABLES_DEF.map(t => t.origins.reduce((s, o) => s + countExpedidas(t, o, td), 0));
+  const totPend  = totPlan.map((p, i) => Math.max(0, p - totExped[i]));
+
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Planejadas', data: totPlan,  backgroundColor: '#293358', borderRadius: 4 },
+        { label: 'Expedidas',  data: totExped, backgroundColor: '#acdb26', borderRadius: 4 },
+        { label: 'Pendentes',  data: totPend,  backgroundColor: '#e74c3c', borderRadius: 4 },
+      ]
     },
-    error(err) {
-      setStatus('❌ Erro ao carregar dados: ' + err.message + '<br><small>Verifique se o GitHub Pages está ativo e o arquivo existe no repositório.</small>');
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const p = totPlan[ctx.dataIndex];
+              const pct = p > 0 ? ` (${((ctx.parsed.y / p) * 100).toFixed(1)}%)` : '';
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y}${ctx.dataset.label !== 'Planejadas' ? pct : ''}`;
+            }
+          }
+        }
+      },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
     }
   });
 }
 
-// ── CARDS ─────────────────────────────────────────────────────
-function renderCards() {
-  const container = document.getElementById('cards');
+// ═══════════════════════════════════════════════════════════
+// COUNT
+// ═══════════════════════════════════════════════════════════
+function countExpedidas(tDef, origin, td) {
+  if (!allRows.length) return 0;
+  return tDef.countFn(allRows, origin, COLS, td);
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER TABLES
+// ═══════════════════════════════════════════════════════════
+function renderAllTables() {
+  const container = document.getElementById('tables');
   container.innerHTML = '';
-  CARD_DEFS.forEach(def => {
-    const val = def.fn(allRows);
-    const pct = allRows.length > 0 ? ((val / allRows.length) * 100).toFixed(1) : '—';
-    const div = document.createElement('div');
-    div.className = 'card ' + def.cls;
-    div.innerHTML = `<div class="label">${def.label}</div>
-                     <div class="value">${val.toLocaleString('pt-BR')}</div>
-                     <div class="sub">${def.label !== 'Total Rotas' ? pct + '% do total' : ''}</div>`;
-    container.appendChild(div);
-  });
+  TABLES_DEF.forEach(tDef => container.appendChild(buildTableSection(tDef)));
 }
 
-// ── CHARTS ────────────────────────────────────────────────────
-function renderCharts() {
-  const CORES = ['#acdb26','#293358','#FFE600','#f39c12','#e74c3c','#3498db','#9b59b6','#1abc9c'];
+function buildTableSection(tDef) {
+  const state = loadLS();
+  const td    = today();
 
-  // Chart 1: por checkpoint
-  const cpCol = columns.find(c => c.toLowerCase().includes('checkpoint')) || '';
-  const cpMap = {};
-  allRows.forEach(r => {
-    const v = (r[cpCol] || 'desconhecido').toLowerCase();
-    cpMap[v] = (cpMap[v] || 0) + 1;
-  });
-  const cpLabels = Object.keys(cpMap);
-  const cpData   = cpLabels.map(k => cpMap[k]);
-
-  if (chartCheckpoint) chartCheckpoint.destroy();
-  chartCheckpoint = new Chart(document.getElementById('chartCheckpoint'), {
-    type: 'doughnut',
-    data: { labels: cpLabels, datasets: [{ data: cpData, backgroundColor: CORES, borderWidth: 2 }] },
-    options: { plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } }, cutout: '60%' }
+  // compute rows
+  const rows = tDef.origins.map(origin => {
+    const saved = getRow(state, tDef.key, origin);
+    const plan  = saved.p || 0;
+    const exped = countExpedidas(tDef, origin, td);
+    const pend  = plan > 0 ? plan - exped : null;
+    return { origin, plan, exped, pend, status: saved.s || '', obs: saved.o || '' };
   });
 
-  // Chart 2: por SC (se houver coluna serviceCenterId)
-  const scCol = columns.find(c => c.toLowerCase().includes('servicecenterid') || c.toLowerCase() === 'sc') || '';
-  const scMap = {};
-  allRows.forEach(r => {
-    const v = r[scCol] || 'N/A';
-    scMap[v] = (scMap[v] || 0) + 1;
-  });
-  const scLabels = Object.keys(scMap);
-  const scData   = scLabels.map(k => scMap[k]);
+  const sumPlan  = rows.reduce((s, r) => s + r.plan,  0);
+  const sumExped = rows.reduce((s, r) => s + r.exped, 0);
+  const sumPend  = rows.reduce((s, r) => s + (r.pend ?? 0), 0);
 
-  if (chartSC) chartSC.destroy();
-  if (scLabels.length > 1) {
-    chartSC = new Chart(document.getElementById('chartSC'), {
-      type: 'bar',
-      data: {
-        labels: scLabels,
-        datasets: [{ label: 'Rotas', data: scData, backgroundColor: '#293358', borderRadius: 5 }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
-      }
+  const section = document.createElement('div');
+  section.className = 'tbl-section';
+  section.style.setProperty('--accent', tDef.accent);
+
+  // Header
+  section.innerHTML = `
+    <div class="tbl-header" style="border-left-color:${tDef.accent}">
+      <span class="type-badge" style="background:${tDef.accent}">${tDef.label}</span>
+      <div>
+        <h3>${tDef.subtitle}</h3>
+      </div>
+      <div class="totals">
+        <div class="tot-item"><div class="tl">Planejadas</div><div class="tv plan">${sumPlan}</div></div>
+        <div class="tot-item"><div class="tl">Expedidas</div><div class="tv exped">${sumExped}</div></div>
+        <div class="tot-item"><div class="tl">Pendentes</div><div class="tv pend">${sumPend}</div></div>
+      </div>
+    </div>
+    <div class="tbl-actions">
+      <label>Rotas Planejadas:</label>
+      <button class="btn-import" data-key="${tDef.key}">&#8679; Importar CSV</button>
+      <button class="btn-clear-plan" data-key="${tDef.key}">&#10005; Limpar Planejadas</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID ORIGEM</th>
+            <th>ORIGEM</th>
+            <th>ROTAS PLANEJADAS</th>
+            <th>ROTAS EXPEDIDAS</th>
+            <th>ROTAS PENDENTES</th>
+            <th>STATUS</th>
+            <th style="min-width:160px">OBSERVAÇÃO</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-${tDef.key}"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">TOTAL</td>
+            <td id="ft-plan-${tDef.key}">${sumPlan}</td>
+            <td id="ft-exped-${tDef.key}">${sumExped}</td>
+            <td id="ft-pend-${tDef.key}">${sumPend}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+
+  // Bind import/clear buttons
+  section.querySelector('.btn-import').addEventListener('click', e => {
+    activeImportKey = e.currentTarget.dataset.key;
+    document.getElementById('csvFileInput').value = '';
+    document.getElementById('csvFileInput').click();
+  });
+  section.querySelector('.btn-clear-plan').addEventListener('click', e => {
+    const key = e.currentTarget.dataset.key;
+    const st = loadLS();
+    if (!st[key]) return;
+    tDef.origins.forEach(o => { if (st[key][o]) st[key][o].p = 0; });
+    saveLS(st);
+    refresh();
+  });
+
+  // Build tbody
+  const tbody = section.querySelector(`#tbody-${tDef.key}`);
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    // pend cell
+    let pendHtml = '<span class="pend-na">—</span>';
+    if (row.pend !== null) {
+      const cls = row.pend > 0 ? 'pend-pos' : row.pend < 0 ? 'pend-neg' : 'pend-zero';
+      pendHtml  = `<span class="${cls}">${row.pend}</span>`;
+    }
+
+    tr.innerHTML = `
+      <td><span class="id-badge" style="background:${tDef.accent}">${tDef.key}</span></td>
+      <td>${row.origin}</td>
+      <td><input class="plan-input" type="number" min="0" value="${row.plan || ''}" placeholder="0" data-key="${tDef.key}" data-origin="${row.origin}" /></td>
+      <td>${row.exped}</td>
+      <td>${pendHtml}</td>
+      <td>
+        <select class="status-sel" data-key="${tDef.key}" data-origin="${row.origin}">
+          ${STATUS_OPTS.map(o => `<option value="${o}"${o === row.status ? ' selected' : ''}>${o || '— status —'}</option>`).join('')}
+        </select>
+      </td>
+      <td><input class="obs-input" type="text" maxlength="120" value="${esc(row.obs)}" placeholder="Observação..." data-key="${tDef.key}" data-origin="${row.origin}" /></td>
+    `;
+
+    // style select
+    const sel = tr.querySelector('.status-sel');
+    applyStatusStyle(sel);
+
+    // events
+    tr.querySelector('.plan-input').addEventListener('change', e => {
+      const val = Math.max(0, parseInt(e.target.value) || 0);
+      e.target.value = val || '';
+      const st = loadLS();
+      getRow(st, e.target.dataset.key, e.target.dataset.origin).p = val;
+      saveLS(st);
+      refresh();
     });
-    document.getElementById('chartsRow').style.display = '';
-  } else {
-    document.getElementById('chartsRow').style.display = 'none';
-  }
+
+    sel.addEventListener('change', e => {
+      applyStatusStyle(e.target);
+      const st = loadLS();
+      getRow(st, e.target.dataset.key, e.target.dataset.origin).s = e.target.value;
+      saveLS(st);
+    });
+
+    tr.querySelector('.obs-input').addEventListener('change', e => {
+      const st = loadLS();
+      getRow(st, e.target.dataset.key, e.target.dataset.origin).o = e.target.value;
+      saveLS(st);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  return section;
 }
 
-// ── TABLE ─────────────────────────────────────────────────────
-function applyFilter() {
-  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
-  filteredRows = q
-    ? allRows.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q)))
-    : [...allRows];
-  sortRows();
-  currentPage = 1;
-  renderTable();
+function esc(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function sortRows() {
-  if (sortCol < 0) return;
-  const key = columns[sortCol];
-  filteredRows.sort((a, b) => {
-    const va = a[key] ?? '', vb = b[key] ?? '';
-    const na = parseFloat(va), nb = parseFloat(vb);
-    if (!isNaN(na) && !isNaN(nb)) return sortAsc ? na - nb : nb - na;
-    return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+// ═══════════════════════════════════════════════════════════
+// REFRESH (re-renders tables + chart)
+// ═══════════════════════════════════════════════════════════
+function refresh() {
+  renderAllTables();
+  renderMainChart();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CSV IMPORT (planejadas)
+// ═══════════════════════════════════════════════════════════
+document.getElementById('csvFileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file || !activeImportKey) return;
+  const tDef = TABLES_DEF.find(t => t.key === activeImportKey);
+  if (!tDef) return;
+
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true,
+    complete(result) {
+      const st = loadLS();
+      const rows = result.data;
+      if (!rows.length) return;
+
+      // detect columns: first col = origin, second col = planejadas
+      const fields = result.meta.fields || [];
+      const originField = fields[0];
+      const planField   = fields.find(f => f.toUpperCase().includes('PLAN') || f === fields[1]);
+
+      let imported = 0;
+      rows.forEach(row => {
+        const origin = String(row[originField] || '').trim();
+        const plan   = parseInt(row[planField]) || 0;
+        if (tDef.origins.includes(origin) && plan >= 0) {
+          getRow(st, activeImportKey, origin).p = plan;
+          imported++;
+        }
+      });
+      saveLS(st);
+      refresh();
+      alert(`Importado: ${imported} origens atualizadas em ${activeImportKey}.`);
+    },
+    error() { alert('Erro ao ler o CSV. Verifique o formato.'); }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// LOAD DATA FROM GITHUB
+// ═══════════════════════════════════════════════════════════
+function loadData() {
+  const scId = document.getElementById('scSelect').value;
+  document.getElementById('statusMsg').innerHTML = '<span class="spinner"></span> Carregando ' + scId + '...';
+  document.getElementById('statusMsg').style.display = '';
+
+  Papa.parse(csvUrl(scId), {
+    download: true, header: true, delimiter: ';', skipEmptyLines: true,
+    complete(result) {
+      if (!result.data || result.data.length === 0) {
+        document.getElementById('statusMsg').innerHTML = '⚠️ Nenhum dado encontrado para ' + scId + '. Verifique se o arquivo existe no repositório.';
+        return;
+      }
+      allRows = result.data;
+      COLS    = detectCols(result.meta.fields || Object.keys(allRows[0]));
+
+      document.getElementById('dashboard').style.display = '';
+      document.getElementById('statusMsg').style.display = 'none';
+      document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+
+      refresh();
+    },
+    error(err) {
+      document.getElementById('statusMsg').innerHTML = '❌ Erro ao carregar: ' + err.message;
+    }
   });
 }
 
-function renderTable() {
-  // Limita colunas exibidas: máx 20, priorizando as mais informativas
-  const MAX_COLS = 20;
-  const displayCols = columns.slice(0, MAX_COLS);
-
-  // Thead
-  const thead = document.getElementById('thead');
-  thead.innerHTML = '<tr>' + displayCols.map((c, i) => {
-    const cls = i === sortCol ? (sortAsc ? 'sorted-asc' : 'sorted-desc') : '';
-    return `<th class="${cls}" onclick="setSort(${i})">${c}</th>`;
-  }).join('') + '</tr>';
-
-  // Tbody
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const slice = filteredRows.slice(start, start + PAGE_SIZE);
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = slice.map(row =>
-    '<tr>' + displayCols.map(c => `<td>${row[c] ?? ''}</td>`).join('') + '</tr>'
-  ).join('');
-
-  // Pagination
-  const total = filteredRows.length;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  document.getElementById('pageInfo').textContent =
-    `${total.toLocaleString('pt-BR')} rotas — página ${currentPage} / ${pages}`;
-  document.getElementById('btnPrev').disabled = currentPage <= 1;
-  document.getElementById('btnNext').disabled = currentPage >= pages;
-  document.getElementById('tableTitle').textContent =
-    `Rotas (${total.toLocaleString('pt-BR')} registros)`;
-  if (columns.length > MAX_COLS) {
-    document.getElementById('tableTitle').textContent +=
-      ` — exibindo ${MAX_COLS} de ${columns.length} colunas`;
-  }
-}
-
-function setSort(i) {
-  if (sortCol === i) sortAsc = !sortAsc; else { sortCol = i; sortAsc = true; }
-  sortRows(); renderTable();
-}
-
-function changePage(delta) {
-  const pages = Math.ceil(filteredRows.length / PAGE_SIZE);
-  currentPage = Math.max(1, Math.min(pages, currentPage + delta));
-  renderTable();
-}
-
-// ── HELPERS ───────────────────────────────────────────────────
-function setStatus(html) {
-  const el = document.getElementById('statusMsg');
-  el.innerHTML = html;
-  el.style.display = '';
-  document.getElementById('dashboard').style.display = 'none';
-}
-
+// ═══════════════════════════════════════════════════════════
+// REFRESH SCHEDULER
+// ═══════════════════════════════════════════════════════════
 function scheduleRefresh() {
   clearInterval(refreshTimer);
   if (document.getElementById('autoRefresh').checked) {
@@ -450,13 +607,13 @@ function scheduleRefresh() {
   }
 }
 
-// ── EVENTS ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// EVENTS + INIT
+// ═══════════════════════════════════════════════════════════
 document.getElementById('btnLoad').addEventListener('click', loadData);
-document.getElementById('scSelect').addEventListener('change', loadData);
 document.getElementById('autoRefresh').addEventListener('change', scheduleRefresh);
 document.getElementById('refreshInterval').addEventListener('change', scheduleRefresh);
 
-// ── INIT ──────────────────────────────────────────────────────
 loadData();
 scheduleRefresh();
 </script>
