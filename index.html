@@ -641,48 +641,37 @@ function loadData() {
         const raw = cv(r, COLS.initDate);
         return `${raw} → ${formatarDataBrasileira(raw)}`;
       }).join(' | ');
-      // carrier: amostras únicas
-      const carrierSample = [...new Set(allRows.map(r => cv(r, COLS.carrier)).filter(Boolean))].slice(0,8).join(', ');
-
-      // facilityId: distribuição completa
+      // facilityId: distribuição
       const fidDist = {};
-      allRows.forEach(r => {
-        const fid = cv(r, COLS.facilityId) || '(vazio)';
-        fidDist[fid] = (fidDist[fid] || 0) + 1;
-      });
+      allRows.forEach(r => { const v = cv(r, COLS.facilityId)||'(vazio)'; fidDist[v]=(fidDist[v]||0)+1; });
 
       // status: distribuição
       const stDist = {};
-      allRows.forEach(r => {
-        const st = cv(r, COLS.status) || '(vazio)';
-        stDist[st] = (stDist[st] || 0) + 1;
-      });
+      allRows.forEach(r => { const v = cv(r, COLS.status)||'(vazio)'; stDist[v]=(stDist[v]||0)+1; });
 
-      // SVC diagnóstico direto: quantas linhas passam em cada etapa
-      const svcOrigins = ['JL Castro','RodaCoop','COOPMETRO','PANTERA LOG TRAN','50 Mais','BRJTransportes','Kangu Logistics','WLS CARGO','Envios Extra'];
-      const svcStep1 = allRows.filter(r => svcOrigins.includes(cv(r, COLS.carrier))).length;
-      const svcStep2 = allRows.filter(r => svcOrigins.includes(cv(r, COLS.carrier)) && cv(r, COLS.status).toLowerCase() !== 'planned').length;
-      const svcStep3 = allRows.filter(r => svcOrigins.includes(cv(r, COLS.carrier)) && cv(r, COLS.status).toLowerCase() !== 'planned' && cv(r, COLS.facilityId) === 'SPA1').length;
+      // initDate: distribuição de datas formatadas
+      const initDateDist = {};
+      allRows.forEach(r => { const v = formatarDataBrasileira(cv(r, COLS.initDate))||'(vazio)'; initDateDist[v]=(initDateDist[v]||0)+1; });
+
+      // Todas as colunas com amostra de valor (para identificar coluna carrier name)
+      const allCols = result.meta.fields || Object.keys(allRows[0]);
+      const colLines = allCols.map(col => {
+        const vals = [...new Set(allRows.slice(0,30).map(r => String(r[col]??'')).filter(v=>v&&v!=='null'&&v!==''))].slice(0,3);
+        return `<code>${col}</code>: <i>${vals.join(' | ')||'—'}</i>`;
+      });
 
       const debugLines = [
         `<b>Linhas totais:</b> ${allRows.length}`,
         `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>carrier (coluna detectada):</b> <code>${COLS.carrier||'NÃO DETECTADO'}</code>`,
-        `<b>carrier — valores únicos (primeiros 8):</b> <i>${carrierSample||'—'}</i>`,
+        `<b style="color:#FFE600">⚠ PROBLEMA 1 — SVC:</b> coluna detectada <code>${COLS.carrier}</code> contém IDs numéricos, não nomes de transportadoras. Identifique abaixo a coluna correta e informe o nome.`,
+        `<b style="color:#FFE600">⚠ PROBLEMA 2 — NEX/DC:</b> initDate distribuição: ${Object.entries(initDateDist).map(([k,v])=>`${k}(${v})`).join(', ')} — filtro "hoje" retorna 0 se não houver rotas com a data de hoje.`,
         `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>facilityId (coluna detectada):</b> <code>${COLS.facilityId||'NÃO DETECTADO'}</code>`,
-        `<b>facilityId — distribuição:</b> ${Object.entries(fidDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<b>facilityType:</b> ${Object.entries(ftDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<b>facilityId:</b> ${Object.entries(fidDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<b>status:</b> ${Object.entries(stDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
         `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>facilityType — distribuição:</b> ${Object.entries(ftDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
-        `<b>status — distribuição:</b> ${Object.entries(stDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
-        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>initDate (coluna):</b> <code>${COLS.initDate||'NÃO DETECTADO'}</code> — amostras: <i>${initSample||'—'}</i>`,
-        `<b>cluster:</b> <code>${COLS.cluster||'NÃO DETECTADO'}</code>`,
-        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>SVC — diagnóstico passo a passo:</b>`,
-        `&nbsp;&nbsp;① carrier ∈ origens SVC: <b>${svcStep1}</b> linhas`,
-        `&nbsp;&nbsp;② + status ≠ planned: <b>${svcStep2}</b> linhas`,
-        `&nbsp;&nbsp;③ + facilityId = 'SPA1': <b>${svcStep3}</b> linhas (= EXPEDIDAS totais SVC)`,
+        `<b>↓ TODAS AS COLUNAS DO CSV (com amostras) — identifique qual tem os nomes das transportadoras:</b>`,
+        ...colLines,
       ];
       document.getElementById('debugInfo').innerHTML = debugLines.join('<br>');
 
