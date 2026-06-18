@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transportadoras — Monitoramento Logístico</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --verde:   #acdb26;
+      --azul:    #293358;
+      --fundo:   #f0f3e4;
+      --amarelo: #FFE600;
+      --cinza:   #e1e4d1;
+      --ativa:   #acdb26;
+      --fechada: #3498db;
+      --destino: #f39c12;
+      --retorno: #e74c3c;
+      --outros:  #95a5a6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--fundo); color: var(--azul); }
+
+    /* ── HEADER ── */
+    .header-bar {
+      background: var(--amarelo); padding: 14px 24px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .header-bar h1 { font-size: 1.25rem; font-weight: 700; color: var(--azul); letter-spacing: .5px; }
+    .badge {
+      background: var(--azul); color: white;
+      font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+    }
+
+    /* ── NAV ── */
+    .nav-bar {
+      background: #1e2845; display: flex; align-items: center; padding: 0 24px;
+    }
+    .nav-bar a {
+      display: inline-block; padding: 10px 20px; color: #8090b8;
+      text-decoration: none; font-size: .88rem; font-weight: 600;
+      border-bottom: 3px solid transparent; transition: all .15s;
+    }
+    .nav-bar a:hover { color: #cdd4f0; }
+    .nav-bar a.active { color: var(--amarelo); border-bottom-color: var(--amarelo); }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      background: var(--azul); padding: 12px 24px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .toolbar label { color: #cdd4f0; font-size: .85rem; }
+    .toolbar select {
+      border: none; border-radius: 6px; padding: 6px 10px; font-size: .9rem;
+      background: white; color: var(--azul); outline: none;
+    }
+    .toolbar button {
+      background: var(--verde); color: var(--azul); border: none;
+      border-radius: 6px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: .9rem;
+      transition: opacity .15s;
+    }
+    .toolbar button:hover { opacity: .85; }
+    .last-update { margin-left: auto; color: #8090b8; font-size: .78rem; }
+
+    /* ── MAIN ── */
+    main { padding: 20px 24px; }
+
+    /* ── STATUS ── */
+    #statusMsg { text-align: center; padding: 40px; color: #8090b8; font-size: .95rem; }
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 3px solid #cdd; border-top-color: var(--azul);
+      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SUMMARY CARDS ── */
+    .summary-cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+    .sum-card {
+      flex: 1 1 140px; background: white; border-radius: 10px;
+      padding: 14px 18px; box-shadow: 0 3px 10px rgba(0,0,0,.08);
+      border-left: 4px solid var(--verde);
+    }
+    .sum-card .label { font-size: .7rem; font-weight: 600; text-transform: uppercase; color: #6b7a9a; margin-bottom: 5px; }
+    .sum-card .value { font-size: 1.6rem; font-weight: 700; color: var(--azul); }
+    .sum-card.ativa  { border-left-color: var(--ativa); }
+    .sum-card.fechada{ border-left-color: var(--fechada); }
+    .sum-card.destino{ border-left-color: var(--destino); }
+    .sum-card.retorno{ border-left-color: var(--retorno); }
+
+    /* ── CHART BOX ── */
+    .chart-box {
+      background: white; border-radius: 10px; padding: 18px;
+      box-shadow: 0 3px 10px rgba(0,0,0,.08); margin-bottom: 20px;
+    }
+    .chart-box h3 { font-size: .88rem; text-transform: uppercase; color: #6b7a9a; margin-bottom: 12px; }
+    .chart-box canvas { max-height: 280px; }
+
+    /* ── LEGEND ── */
+    .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: #4a5568; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── CARRIER GRID ── */
+    .carrier-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .carrier-card {
+      background: white; border-radius: 10px; padding: 16px;
+      box-shadow: 0 3px 10px rgba(0,0,0,.08);
+      border-top: 4px solid var(--cinza);
+      cursor: pointer; transition: transform .12s, box-shadow .12s;
+    }
+    .carrier-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.12); }
+    .carrier-card.selected { border-top-color: var(--amarelo); box-shadow: 0 0 0 2px var(--azul), 0 6px 18px rgba(0,0,0,.12); }
+    .carrier-card.zero { opacity: .55; }
+
+    .carrier-name {
+      font-size: .88rem; font-weight: 700; color: var(--azul);
+      margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .carrier-total { font-size: 1.5rem; font-weight: 700; color: var(--azul); margin-bottom: 4px; }
+    .carrier-pct   { font-size: .75rem; color: #8090b8; margin-bottom: 10px; }
+
+    /* stack bar */
+    .stack-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #eee; gap: 1px; }
+    .stack-seg { height: 100%; transition: width .4s; }
+
+    .carrier-breakdown { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+    .breakdown-item { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: #4a5568; }
+    .breakdown-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .breakdown-val { font-weight: 700; margin-left: auto; color: var(--azul); }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      background: white; border-radius: 10px; overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0,0,0,.08);
+    }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid #eee; flex-wrap: wrap; gap: 8px;
+    }
+    .table-header h2 { font-size: .95rem; font-weight: 700; color: var(--azul); }
+    #searchInput {
+      border: 1px solid #dde; border-radius: 6px; padding: 6px 12px;
+      font-size: .85rem; width: 220px; outline: none;
+    }
+    #clearFilter {
+      background: #f5f5f5; border: 1px solid #dde; color: var(--azul);
+      border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: .82rem;
+    }
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    thead th {
+      background: var(--azul); color: white; padding: 10px 12px;
+      text-align: left; white-space: nowrap; cursor: pointer; user-select: none;
+      position: sticky; top: 0;
+    }
+    thead th:hover { background: #3e4b7a; }
+    thead th.sorted-asc::after  { content: ' ▲'; font-size: .65rem; }
+    thead th.sorted-desc::after { content: ' ▼'; font-size: .65rem; }
+    tbody tr:nth-child(even) { background: #f8f9f4; }
+    tbody tr:hover { background: #eef3d6; }
+    tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+    .chip {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: .72rem; font-weight: 700;
+    }
+    .chip-active   { background: #e8f8c0; color: #5a8a00; }
+    .chip-close    { background: #d6eeff; color: #1565a0; }
+    .chip-dest     { background: #fff3d6; color: #a06000; }
+    .chip-return   { background: #fde8e8; color: #b71c1c; }
+    .pagination {
+      display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+      padding: 12px 18px; font-size: .82rem; color: #6b7a9a;
+    }
+    .pagination button {
+      border: 1px solid #dde; background: white; color: var(--azul);
+      border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: .82rem;
+    }
+    .pagination button:disabled { opacity: .4; cursor: default; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: .82rem; font-weight: 700; text-transform: uppercase;
+      color: #6b7a9a; letter-spacing: .5px; margin: 0 0 12px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header-bar">
+  <h1>MONITORAMENTO LOGÍSTICO</h1>
+  <span class="badge">Mercado Envios</span>
+</div>
+
+<!-- NAV -->
+<div class="nav-bar">
+  <a href="index.html">&#9632; Principal</a>
+  <a href="carriers.html" class="active">&#9651; Transportadoras</a>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <label>Service Center:</label>
+  <select id="scSelect">
+    <option value="SPA1_SPA2">SPA1 + SPA2 (consolidado)</option>
+    <option value="SPA1">SPA1</option>
+    <option value="SPA2">SPA2</option>
+    <option value="SAL1">SAL1</option>
+    <option value="SAM1">SAM1</option>
+    <option value="SBA2">SBA2</option>
+    <option value="SBA3">SBA3</option>
+    <option value="SBA4">SBA4</option>
+    <option value="SBA7">SBA7</option>
+    <option value="SCE1">SCE1</option>
+    <option value="SDF1">SDF1</option>
+    <option value="SDF2">SDF2</option>
+    <option value="SGO1">SGO1</option>
+    <option value="SGO2">SGO2</option>
+    <option value="SJP1">SJP1</option>
+    <option value="SMN1">SMN1</option>
+    <option value="SMR1">SMR1</option>
+    <option value="SMR2">SMR2</option>
+    <option value="SMS1">SMS1</option>
+    <option value="SMS2">SMS2</option>
+    <option value="SPE1">SPE1</option>
+    <option value="SPI1">SPI1</option>
+    <option value="SRD1">SRD1</option>
+    <option value="SRD2">SRD2</option>
+    <option value="SRN1">SRN1</option>
+    <option value="SSE1">SSE1</option>
+    <option value="STO1">STO1</option>
+    <option value="STO2">STO2</option>
+  </select>
+
+  <button id="btnLoad">&#8635; Atualizar</button>
+
+  <label style="margin-left:8px;">
+    <input type="checkbox" id="autoRefresh" checked /> Auto-refresh
+  </label>
+  <select id="refreshInterval" style="width:auto;">
+    <option value="60">1 min</option>
+    <option value="120" selected>2 min</option>
+    <option value="300">5 min</option>
+  </select>
+
+  <span class="last-update" id="lastUpdate">—</span>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div id="statusMsg"><span class="spinner"></span> Carregando dados...</div>
+
+  <div id="dashboard" style="display:none;">
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-cards" id="summaryCards"></div>
+
+    <!-- LEGEND -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ativa)"></div> Ativa</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--fechada)"></div> Fechada</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--destino)"></div> No Destino</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--retorno)"></div> Retorno</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--outros)"></div> Outros</div>
+    </div>
+
+    <!-- COMPARISON CHART -->
+    <div class="chart-box">
+      <h3>Rotas por Transportadora — Distribuição de Checkpoints</h3>
+      <canvas id="chartCarriers"></canvas>
+    </div>
+
+    <!-- CARRIER GRID -->
+    <p class="section-title">Clique em uma transportadora para filtrar as rotas na tabela</p>
+    <div class="carrier-grid" id="carrierGrid"></div>
+
+    <!-- DETAIL TABLE -->
+    <div class="table-wrap">
+      <div class="table-header">
+        <h2 id="tableTitle">Rotas</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="clearFilter" onclick="clearCarrierFilter()" style="display:none;">&#10005; Limpar filtro</button>
+          <input id="searchInput" type="text" placeholder="Buscar..." oninput="applyFilter()" />
+        </div>
+      </div>
+      <div class="table-container">
+        <table id="mainTable">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span id="pageInfo"></span>
+        <button id="btnPrev" onclick="changePage(-1)">&#8592; Anterior</button>
+        <button id="btnNext" onclick="changePage(1)">Próxima &#8594;</button>
+      </div>
+    </div>
+
+  </div><!-- /dashboard -->
+</main>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const OWNER  = 'Franmoraes01';
+const REPO   = 'utr-otr-dashboard';
+const BRANCH = 'main';
+const BASE   = 'Logistics_api';
+
+const KNOWN_CARRIERS = [
+  '50 Mais', 'Agencias Kangu', 'BRJTransportes', 'COOPMETRO',
+  'DHL', 'Envios Extra', 'JL Castro', 'Kangu Logistics',
+  'PANTERA LOG TRAN', 'RodaCoop', 'WLS CARGO'
+];
+
+const CP = {
+  active:   { label: 'Ativa',      color: '#acdb26', cls: 'chip-active'  },
+  close:    { label: 'Fechada',    color: '#3498db', cls: 'chip-close'   },
+  at_destination_facility_xpt: { label: 'No Destino', color: '#f39c12', cls: 'chip-dest' },
+  return_to_station:           { label: 'Retorno',    color: '#e74c3c', cls: 'chip-return' },
+};
+const CP_OUTROS = { label: 'Outros', color: '#95a5a6', cls: '' };
+
+function csvUrl(scId) {
+  return `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${BASE}_${scId}.csv?t=${Date.now()}`;
+}
+
+// ── STATE ─────────────────────────────────────────────────────
+let allRows        = [];
+let filteredRows   = [];
+let columns        = [];
+let carrierCol     = '';
+let checkpointCol  = '';
+let sortCol        = -1;
+let sortAsc        = true;
+let currentPage    = 1;
+const PAGE_SIZE    = 50;
+let selectedCarrier = null;
+let chartCarriers   = null;
+let refreshTimer    = null;
+
+// ── COLUMN DETECTION ──────────────────────────────────────────
+function detectColumns(cols) {
+  carrierCol = cols.find(c =>
+    c.toLowerCase() === 'carrier' ||
+    c.toLowerCase().includes('carrier') ||
+    c.toLowerCase().includes('transportadora')
+  ) || '';
+
+  checkpointCol = cols.find(c =>
+    c.toLowerCase().includes('checkpoint') ||
+    c.toLowerCase() === 'status'
+  ) || '';
+}
+
+// ── CHECKPOINT CLASSIFY ───────────────────────────────────────
+function classifyCheckpoint(val) {
+  const v = String(val || '').toLowerCase();
+  if (v.includes('active'))      return 'active';
+  if (v.includes('close'))       return 'close';
+  if (v.includes('at_dest') || v.includes('destination')) return 'at_destination_facility_xpt';
+  if (v.includes('return'))      return 'return_to_station';
+  return 'outros';
+}
+
+// ── CARRIER STATS ─────────────────────────────────────────────
+function buildCarrierStats(rows) {
+  const stats = {};
+  KNOWN_CARRIERS.forEach(c => {
+    stats[c] = { total: 0, active: 0, close: 0, at_destination_facility_xpt: 0, return_to_station: 0, outros: 0 };
+  });
+  // também coleta carriers desconhecidos
+  const unknown = { total: 0, active: 0, close: 0, at_destination_facility_xpt: 0, return_to_station: 0, outros: 0 };
+
+  rows.forEach(r => {
+    const carrier = (r[carrierCol] || '').trim();
+    const cp      = classifyCheckpoint(r[checkpointCol] || '');
+    const bucket  = stats[carrier] || unknown;
+    bucket.total++;
+    bucket[cp]++;
+    if (!stats[carrier]) unknown.total++;
+  });
+
+  return stats;
+}
+
+// ── LOAD ──────────────────────────────────────────────────────
+function loadData() {
+  const scId = document.getElementById('scSelect').value;
+  setStatus('<span class="spinner"></span> Carregando ' + scId + '...');
+  selectedCarrier = null;
+
+  Papa.parse(csvUrl(scId), {
+    download: true, header: true, delimiter: ';', skipEmptyLines: true,
+    complete(result) {
+      if (!result.data || result.data.length === 0) {
+        setStatus('⚠️ Nenhum dado encontrado para ' + scId + '. O arquivo pode ainda não ter sido enviado ao GitHub.');
+        return;
+      }
+      allRows  = result.data;
+      columns  = result.meta.fields || Object.keys(allRows[0]);
+      detectColumns(columns);
+
+      if (!carrierCol) {
+        setStatus('⚠️ Coluna "carrier" não encontrada no CSV de ' + scId + '.<br><small>Colunas disponíveis: ' + columns.slice(0,10).join(', ') + '</small>');
+        return;
+      }
+
+      applyFilter();
+      renderSummaryCards();
+      renderChart();
+      renderCarrierGrid();
+      document.getElementById('dashboard').style.display = '';
+      document.getElementById('statusMsg').style.display = 'none';
+      document.getElementById('lastUpdate').textContent =
+        'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    },
+    error(err) {
+      setStatus('❌ Erro ao carregar dados: ' + err.message);
+    }
+  });
+}
+
+// ── SUMMARY CARDS ─────────────────────────────────────────────
+function renderSummaryCards() {
+  let ativa = 0, fechada = 0, destino = 0, retorno = 0;
+  allRows.forEach(r => {
+    const cp = classifyCheckpoint(r[checkpointCol] || '');
+    if (cp === 'active')                    ativa++;
+    else if (cp === 'close')                fechada++;
+    else if (cp === 'at_destination_facility_xpt') destino++;
+    else if (cp === 'return_to_station')    retorno++;
+  });
+
+  const total = allRows.length;
+  const pct = v => total ? ((v/total)*100).toFixed(1)+'%' : '—';
+
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="sum-card">
+      <div class="label">Total Rotas</div>
+      <div class="value">${total.toLocaleString('pt-BR')}</div>
+    </div>
+    <div class="sum-card ativa">
+      <div class="label">Ativas</div>
+      <div class="value">${ativa.toLocaleString('pt-BR')}</div>
+      <div style="font-size:.78rem;color:#8090b8">${pct(ativa)}</div>
+    </div>
+    <div class="sum-card fechada">
+      <div class="label">Fechadas</div>
+      <div class="value">${fechada.toLocaleString('pt-BR')}</div>
+      <div style="font-size:.78rem;color:#8090b8">${pct(fechada)}</div>
+    </div>
+    <div class="sum-card destino">
+      <div class="label">No Destino</div>
+      <div class="value">${destino.toLocaleString('pt-BR')}</div>
+      <div style="font-size:.78rem;color:#8090b8">${pct(destino)}</div>
+    </div>
+    <div class="sum-card retorno">
+      <div class="label">Retorno</div>
+      <div class="value">${retorno.toLocaleString('pt-BR')}</div>
+      <div style="font-size:.78rem;color:#8090b8">${pct(retorno)}</div>
+    </div>
+  `;
+}
+
+// ── CHART ─────────────────────────────────────────────────────
+function renderChart() {
+  const stats   = buildCarrierStats(allRows);
+  const labels  = KNOWN_CARRIERS.filter(c => stats[c] && stats[c].total > 0);
+  const mkData  = key => labels.map(c => stats[c][key] || 0);
+
+  if (chartCarriers) chartCarriers.destroy();
+  chartCarriers = new Chart(document.getElementById('chartCarriers'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Ativa',      data: mkData('active'),                    backgroundColor: '#acdb26' },
+        { label: 'Fechada',    data: mkData('close'),                     backgroundColor: '#3498db' },
+        { label: 'No Destino', data: mkData('at_destination_facility_xpt'), backgroundColor: '#f39c12' },
+        { label: 'Retorno',    data: mkData('return_to_station'),         backgroundColor: '#e74c3c' },
+        { label: 'Outros',     data: mkData('outros'),                    backgroundColor: '#95a5a6' },
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const total = labels.map(c => stats[c].total)[ctx.dataIndex];
+              const pct = total ? ((ctx.parsed.y / total) * 100).toFixed(1) : 0;
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── CARRIER GRID ──────────────────────────────────────────────
+function renderCarrierGrid() {
+  const stats  = buildCarrierStats(allRows);
+  const total  = allRows.length || 1;
+  const grid   = document.getElementById('carrierGrid');
+  grid.innerHTML = '';
+
+  KNOWN_CARRIERS.forEach(carrier => {
+    const s    = stats[carrier] || { total:0, active:0, close:0, at_destination_facility_xpt:0, return_to_station:0, outros:0 };
+    const ct   = s.total || 0;
+    const pct  = v => ct ? ((v/ct)*100).toFixed(1) : '0.0';
+    const ofSC = total ? ((ct/total)*100).toFixed(1) : '0.0';
+
+    // stack widths
+    const w = key => ct ? ((s[key]/ct)*100).toFixed(2) : '0';
+
+    const isSelected = selectedCarrier === carrier;
+    const isZero     = ct === 0;
+
+    const card = document.createElement('div');
+    card.className = 'carrier-card' + (isSelected ? ' selected' : '') + (isZero ? ' zero' : '');
+    card.title = carrier;
+    card.onclick = () => toggleCarrierFilter(carrier);
+
+    card.innerHTML = `
+      <div class="carrier-name" title="${carrier}">${carrier}</div>
+      <div class="carrier-total">${ct.toLocaleString('pt-BR')}</div>
+      <div class="carrier-pct">${ofSC}% do total do SC</div>
+      <div class="stack-bar">
+        <div class="stack-seg" style="background:#acdb26;width:${w('active')}%"></div>
+        <div class="stack-seg" style="background:#3498db;width:${w('close')}%"></div>
+        <div class="stack-seg" style="background:#f39c12;width:${w('at_destination_facility_xpt')}%"></div>
+        <div class="stack-seg" style="background:#e74c3c;width:${w('return_to_station')}%"></div>
+        <div class="stack-seg" style="background:#95a5a6;width:${w('outros')}%"></div>
+      </div>
+      <div class="carrier-breakdown">
+        <div class="breakdown-item">
+          <div class="breakdown-dot" style="background:#acdb26"></div> Ativa
+          <span class="breakdown-val">${s.active} <small style="font-weight:400;color:#8090b8">(${pct('active')}%)</small></span>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-dot" style="background:#3498db"></div> Fechada
+          <span class="breakdown-val">${s.close} <small style="font-weight:400;color:#8090b8">(${pct('close')}%)</small></span>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-dot" style="background:#f39c12"></div> No Destino
+          <span class="breakdown-val">${s.at_destination_facility_xpt} <small style="font-weight:400;color:#8090b8">(${pct('at_destination_facility_xpt')}%)</small></span>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-dot" style="background:#e74c3c"></div> Retorno
+          <span class="breakdown-val">${s.return_to_station} <small style="font-weight:400;color:#8090b8">(${pct('return_to_station')}%)</small></span>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── FILTER BY CARRIER ─────────────────────────────────────────
+function toggleCarrierFilter(carrier) {
+  selectedCarrier = (selectedCarrier === carrier) ? null : carrier;
+  renderCarrierGrid();
+  applyFilter();
+  document.getElementById('clearFilter').style.display = selectedCarrier ? '' : 'none';
+  if (selectedCarrier) {
+    document.getElementById('mainTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function clearCarrierFilter() {
+  selectedCarrier = null;
+  renderCarrierGrid();
+  applyFilter();
+  document.getElementById('clearFilter').style.display = 'none';
+}
+
+// ── TABLE ─────────────────────────────────────────────────────
+function applyFilter() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  let base = selectedCarrier
+    ? allRows.filter(r => (r[carrierCol] || '').trim() === selectedCarrier)
+    : [...allRows];
+  filteredRows = q
+    ? base.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q)))
+    : base;
+  sortRows();
+  currentPage = 1;
+  renderTable();
+}
+
+function sortRows() {
+  if (sortCol < 0) return;
+  const key = columns[sortCol];
+  filteredRows.sort((a, b) => {
+    const va = a[key] ?? '', vb = b[key] ?? '';
+    const na = parseFloat(va), nb = parseFloat(vb);
+    if (!isNaN(na) && !isNaN(nb)) return sortAsc ? na - nb : nb - na;
+    return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+}
+
+function renderTable() {
+  const MAX_COLS  = 20;
+  const displayCols = columns.slice(0, MAX_COLS);
+
+  // thead
+  document.getElementById('thead').innerHTML =
+    '<tr>' + displayCols.map((c, i) => {
+      const cls = i === sortCol ? (sortAsc ? 'sorted-asc' : 'sorted-desc') : '';
+      return `<th class="${cls}" onclick="setSort(${i})">${c}</th>`;
+    }).join('') + '</tr>';
+
+  // tbody — colore a célula de checkpoint
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const slice = filteredRows.slice(start, start + PAGE_SIZE);
+  const cpIdx = displayCols.indexOf(checkpointCol);
+
+  document.getElementById('tbody').innerHTML = slice.map(row =>
+    '<tr>' + displayCols.map((c, ci) => {
+      let val = row[c] ?? '';
+      if (ci === cpIdx && val) {
+        const key = classifyCheckpoint(val);
+        const info = CP[key] || CP_OUTROS;
+        val = `<span class="chip ${info.cls}">${val}</span>`;
+      }
+      return `<td>${val}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+
+  const total = filteredRows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  document.getElementById('pageInfo').textContent =
+    `${total.toLocaleString('pt-BR')} rotas — página ${currentPage} / ${pages}`;
+  document.getElementById('btnPrev').disabled = currentPage <= 1;
+  document.getElementById('btnNext').disabled = currentPage >= pages;
+
+  const label = selectedCarrier ? ` — ${selectedCarrier}` : '';
+  document.getElementById('tableTitle').textContent =
+    `Rotas${label} (${total.toLocaleString('pt-BR')} registros)`;
+}
+
+function setSort(i) {
+  sortCol = (sortCol === i) ? (sortAsc = !sortAsc, i) : (sortAsc = true, i);
+  sortRows(); renderTable();
+}
+
+function changePage(delta) {
+  const pages = Math.ceil(filteredRows.length / PAGE_SIZE);
+  currentPage = Math.max(1, Math.min(pages, currentPage + delta));
+  renderTable();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function setStatus(html) {
+  document.getElementById('statusMsg').innerHTML = html;
+  document.getElementById('statusMsg').style.display = '';
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+function scheduleRefresh() {
+  clearInterval(refreshTimer);
+  if (document.getElementById('autoRefresh').checked) {
+    const secs = parseInt(document.getElementById('refreshInterval').value, 10);
+    refreshTimer = setInterval(loadData, secs * 1000);
+  }
+}
+
+// ── EVENTS ────────────────────────────────────────────────────
+document.getElementById('btnLoad').addEventListener('click', loadData);
+document.getElementById('scSelect').addEventListener('change', loadData);
+document.getElementById('autoRefresh').addEventListener('change', scheduleRefresh);
+document.getElementById('refreshInterval').addEventListener('change', scheduleRefresh);
+
+// ── INIT ──────────────────────────────────────────────────────
+loadData();
+scheduleRefresh();
+</script>
+</body>
+</html>
