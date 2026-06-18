@@ -221,7 +221,7 @@ const TABLES_DEF = [
       return rows.filter(r =>
         cv(r, C.carrier) === origin &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
-        nullish(cv(r, C.facilityType))
+        cv(r, C.facilityId) === 'SPA1'
       ).length;
     }
   },
@@ -641,15 +641,48 @@ function loadData() {
         const raw = cv(r, COLS.initDate);
         return `${raw} → ${formatarDataBrasileira(raw)}`;
       }).join(' | ');
-      const carrierSample = [...new Set(allRows.slice(0,20).map(r => cv(r, COLS.carrier)).filter(Boolean))].slice(0,5).join(', ');
+      // carrier: amostras únicas
+      const carrierSample = [...new Set(allRows.map(r => cv(r, COLS.carrier)).filter(Boolean))].slice(0,8).join(', ');
+
+      // facilityId: distribuição completa
+      const fidDist = {};
+      allRows.forEach(r => {
+        const fid = cv(r, COLS.facilityId) || '(vazio)';
+        fidDist[fid] = (fidDist[fid] || 0) + 1;
+      });
+
+      // status: distribuição
+      const stDist = {};
+      allRows.forEach(r => {
+        const st = cv(r, COLS.status) || '(vazio)';
+        stDist[st] = (stDist[st] || 0) + 1;
+      });
+
+      // SVC diagnóstico direto: quantas linhas passam em cada etapa
+      const svcOrigins = ['JL Castro','RodaCoop','COOPMETRO','PANTERA LOG TRAN','50 Mais','BRJTransportes','Kangu Logistics','WLS CARGO','Envios Extra'];
+      const svcStep1 = allRows.filter(r => svcOrigins.includes(cv(r, COLS.carrier))).length;
+      const svcStep2 = allRows.filter(r => svcOrigins.includes(cv(r, COLS.carrier)) && cv(r, COLS.status).toLowerCase() !== 'planned').length;
+      const svcStep3 = allRows.filter(r => svcOrigins.includes(cv(r, COLS.carrier)) && cv(r, COLS.status).toLowerCase() !== 'planned' && cv(r, COLS.facilityId) === 'SPA1').length;
+
       const debugLines = [
-        `<b>Linhas:</b> ${allRows.length}`,
-        `<b>carrier (coluna):</b> <code>${COLS.carrier||'NÃO DETECTADO'}</code> — amostras: <i>${carrierSample||'—'}</i>`,
-        `<b>facilityId:</b> <code>${COLS.facilityId||'NÃO DETECTADO'}</code>`,
-        `<b>facilityType:</b> <code>${COLS.facilityType||'NÃO DETECTADO'}</code>`,
-        `<b>initDate:</b> <code>${COLS.initDate||'NÃO DETECTADO'}</code> — amostras: <i>${initSample||'—'}</i>`,
+        `<b>Linhas totais:</b> ${allRows.length}`,
+        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
+        `<b>carrier (coluna detectada):</b> <code>${COLS.carrier||'NÃO DETECTADO'}</code>`,
+        `<b>carrier — valores únicos (primeiros 8):</b> <i>${carrierSample||'—'}</i>`,
+        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
+        `<b>facilityId (coluna detectada):</b> <code>${COLS.facilityId||'NÃO DETECTADO'}</code>`,
+        `<b>facilityId — distribuição:</b> ${Object.entries(fidDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
+        `<b>facilityType — distribuição:</b> ${Object.entries(ftDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<b>status — distribuição:</b> ${Object.entries(stDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
+        `<b>initDate (coluna):</b> <code>${COLS.initDate||'NÃO DETECTADO'}</code> — amostras: <i>${initSample||'—'}</i>`,
         `<b>cluster:</b> <code>${COLS.cluster||'NÃO DETECTADO'}</code>`,
-        `<b>facilityType distribuição:</b> ${Object.entries(ftDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
+        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
+        `<b>SVC — diagnóstico passo a passo:</b>`,
+        `&nbsp;&nbsp;① carrier ∈ origens SVC: <b>${svcStep1}</b> linhas`,
+        `&nbsp;&nbsp;② + status ≠ planned: <b>${svcStep2}</b> linhas`,
+        `&nbsp;&nbsp;③ + facilityId = 'SPA1': <b>${svcStep3}</b> linhas (= EXPEDIDAS totais SVC)`,
       ];
       document.getElementById('debugInfo').innerHTML = debugLines.join('<br>');
 
