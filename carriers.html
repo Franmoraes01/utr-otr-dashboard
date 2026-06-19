@@ -189,6 +189,35 @@
       font-size: .82rem; font-weight: 700; text-transform: uppercase;
       color: #6b7a9a; letter-spacing: .5px; margin: 0 0 12px;
     }
+
+    /* ═══════════════════════════════
+       RESPONSIVO — MOBILE
+    ═══════════════════════════════ */
+    @media (max-width: 768px) {
+      .header-bar { padding: 0 14px; min-height: 52px; }
+      .header-bar h1 { font-size: .88rem; }
+
+      .nav-bar { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .nav-bar a { padding: 10px 12px; font-size: .8rem; white-space: nowrap; }
+
+      .toolbar { padding: 10px 14px; gap: 8px; }
+      .toolbar select, .toolbar button { font-size: .82rem; padding: 6px 10px; min-height: 36px; }
+      .last-update { width: 100%; margin-left: 0; }
+
+      main { padding: 12px 14px; }
+
+      .summary-cards { gap: 10px; }
+      .sum-card { flex: 1 1 120px; padding: 12px 14px; }
+      .sum-card .value { font-size: 1.3rem; }
+
+      .chart-box { padding: 12px; }
+      .chart-box canvas { max-height: 220px; }
+    }
+
+    @media (max-width: 480px) {
+      .header-bar h1 { font-size: .78rem; }
+      .sum-card { flex: 1 1 100px; }
+    }
   </style>
 </head>
 <body>
