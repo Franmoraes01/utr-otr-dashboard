@@ -151,6 +151,46 @@
     .pend-zero { color: #27ae60; font-weight: 700; }
     .pend-neg { color: #1565a0; font-weight: 700; }
     .pend-na { color: #aaa; }
+
+    /* ═══════════════════════════════
+       RESPONSIVO — MOBILE
+    ═══════════════════════════════ */
+    @media (max-width: 768px) {
+      .header-bar { height: 52px; padding: 0 14px; }
+      .header-bar img.logo { height: 30px; }
+      .header-bar .divider { margin: 0 10px; }
+      .header-bar h1 { font-size: .82rem; }
+
+      .nav-bar { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .nav-bar a { padding: 10px 12px; font-size: .8rem; white-space: nowrap; }
+
+      .toolbar { padding: 10px 14px; gap: 8px; }
+      .toolbar select, .toolbar button { font-size: .82rem; padding: 6px 10px; min-height: 36px; }
+      .last-update { width: 100%; margin-left: 0; font-size: .72rem; }
+
+      main { padding: 12px 14px; gap: 12px; }
+
+      .cards-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .card-body { padding: 12px 14px 10px; gap: 8px; }
+      .card-metric .mvalue { font-size: 1.3rem; }
+
+      .tbl-header { padding: 10px 12px; gap: 8px; }
+      .tbl-header .totals { gap: 10px; }
+      .tot-item .tv { font-size: .95rem; }
+
+      input.plan-input { width: 60px; }
+      select.status-sel { width: 130px; font-size: .72rem; }
+      input.obs-input { min-width: 100px; }
+
+      #reportOverlay .modal-box { width: 95vw; }
+      #reportOverlay textarea { min-height: 260px; }
+    }
+
+    @media (max-width: 480px) {
+      .header-bar h1 { display: none; }
+      .header-bar .divider { display: none; }
+      .cards-row { grid-template-columns: repeat(2, 1fr); }
+    }
   </style>
 </head>
 <body>
