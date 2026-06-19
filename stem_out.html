@@ -118,6 +118,45 @@
       background: white; transition: border-color .12s; color: var(--azul);
     }
     input.just-input:focus { outline: none; border-color: var(--verde); }
+
+    /* ═══════════════════════════════
+       RESPONSIVO — MOBILE
+    ═══════════════════════════════ */
+    @media (max-width: 768px) {
+      .header-bar { height: 52px; padding: 0 14px; }
+      .header-bar img.logo { height: 30px; }
+      .header-bar .divider { margin: 0 10px; }
+      .header-bar h1 { font-size: .82rem; }
+
+      .nav-bar { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .nav-bar a { padding: 10px 12px; font-size: .8rem; white-space: nowrap; }
+
+      .toolbar { padding: 10px 14px; gap: 8px; }
+      .toolbar select, .toolbar button { font-size: .82rem; padding: 6px 10px; min-height: 36px; }
+      .last-update { width: 100%; margin-left: 0; font-size: .72rem; }
+
+      main { padding: 12px 14px; gap: 12px; }
+
+      .metrics-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .metric-card { padding: 12px 14px; }
+      .metric-card .mc-value { font-size: 1.6rem; }
+
+      .tbl-section-header { flex-wrap: wrap; padding: 10px 12px; gap: 6px; }
+      .tbl-section-header .sub { display: none; }
+
+      .ranking-section .adh-bar { min-width: 40px; }
+
+      .modal-box { width: 95vw !important; }
+      .modal-body textarea { min-height: 260px; }
+      .modal-foot { flex-wrap: wrap; }
+      .btn-copy, .btn-close-modal { flex: 1; text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      .header-bar h1 { display: none; }
+      .header-bar .divider { display: none; }
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    }
   </style>
 </head>
 <body>
