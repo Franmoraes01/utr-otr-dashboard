@@ -167,6 +167,17 @@
     <option value="120" selected>2 min</option>
     <option value="300">5 min</option>
   </select>
+
+  <div style="width:1px;background:rgba(255,255,255,.15);height:24px;margin:0 4px;"></div>
+
+  <button class="btn-import-global" id="btnImportGlobal" style="background:#acdb26;color:#293358;border:none;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:.85rem;">
+    &#8679; Importar Planejadas (CSV)
+  </button>
+  <button id="btnClearAll" style="background:transparent;border:1px solid rgba(255,255,255,.25);color:#cdd4f0;border-radius:6px;padding:6px 12px;font-size:.82rem;cursor:pointer;">
+    &#10005; Limpar
+  </button>
+  <span style="font-size:.72rem;color:#6070a0;">ORIGEM ; PLANEJADAS</span>
+
   <span class="last-update" id="lastUpdate">—</span>
   <span id="syncStatus" style="font-size:.75rem;transition:color .3s;margin-left:6px;"></span>
 </div>
@@ -187,14 +198,6 @@
       <h2>Visão Geral — Rotas por Tipo</h2>
       <div class="sub">Planejadas × Expedidas × Pendentes — SVC / XPT / NEX / DC</div>
       <canvas id="mainChart"></canvas>
-    </div>
-
-    <!-- IMPORTAÇÃO GLOBAL DE PLANEJADAS -->
-    <div class="import-bar">
-      <span class="lbl">Rotas Planejadas:</span>
-      <button class="btn-import-global" id="btnImportGlobal">&#8679; Importar CSV</button>
-      <button class="btn-clear-all" id="btnClearAll">&#10005; Limpar todas</button>
-      <span class="hint">Formato: ORIGEM ; PLANEJADAS &nbsp;|&nbsp; Vale para todos os gráficos tabela</span>
     </div>
 
     <!-- TABELAS: geradas dinamicamente -->
