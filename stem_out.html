@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Indicar Stem Out — Monitoramento Logístico</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --verde:   #acdb26;
+      --azul:    #293358;
+      --fundo:   #f0f3e4;
+      --amarelo: #FFE600;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--fundo); color: var(--azul); }
+
+    /* HEADER */
+    .header-bar { background: var(--amarelo); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 0; }
+    .header-bar img.logo { height: 40px; width: auto; display: block; }
+    .header-bar .divider { width: 1px; height: 32px; background: rgba(41,51,88,.3); margin: 0 18px; }
+    .header-bar h1 { font-size: 1rem; font-weight: 700; color: var(--azul); letter-spacing: .3px; white-space: nowrap; }
+
+    /* NAV */
+    .nav-bar { background: #1e2845; display: flex; align-items: center; padding: 0 24px; }
+    .nav-bar a { display: inline-block; padding: 10px 20px; color: #8090b8; text-decoration: none; font-size: .88rem; font-weight: 600; border-bottom: 3px solid transparent; transition: all .15s; }
+    .nav-bar a:hover { color: #cdd4f0; }
+    .nav-bar a.active { color: var(--amarelo); border-bottom-color: var(--amarelo); }
+
+    /* TOOLBAR */
+    .toolbar { background: var(--azul); padding: 12px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .toolbar label { color: #cdd4f0; font-size: .85rem; }
+    .toolbar select { border: none; border-radius: 6px; padding: 6px 10px; font-size: .9rem; background: white; color: var(--azul); outline: none; }
+    .toolbar button { background: var(--verde); color: var(--azul); border: none; border-radius: 6px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: .9rem; }
+    .toolbar button:hover { opacity: .85; }
+    .last-update { margin-left: auto; color: #8090b8; font-size: .78rem; }
+
+    /* MAIN */
+    main { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* STATUS MSG */
+    #statusMsg { text-align: center; padding: 40px; color: #8090b8; font-size: .95rem; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #cdd; border-top-color: var(--azul); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* METRICS ROW */
+    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .metric-card { background: white; border-radius: 12px; padding: 16px 18px; box-shadow: 0 3px 12px rgba(0,0,0,.08); display: flex; flex-direction: column; gap: 6px; }
+    .metric-card .mc-label { font-size: .7rem; text-transform: uppercase; color: #8090b8; font-weight: 700; letter-spacing: .4px; }
+    .metric-card .mc-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .metric-card .mc-sub { font-size: .72rem; color: #8090b8; }
+
+    /* RANKING */
+    .ranking-section { background: white; border-radius: 12px; box-shadow: 0 3px 12px rgba(0,0,0,.08); overflow: hidden; }
+    .ranking-header { padding: 12px 18px; background: var(--azul); color: white; font-weight: 700; font-size: .88rem; display: flex; align-items: center; gap: 8px; }
+    table.rank-tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    table.rank-tbl thead th { background: #f0f3e4; color: var(--azul); padding: 8px 14px; text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .3px; font-weight: 700; }
+    table.rank-tbl thead th.num { text-align: right; }
+    table.rank-tbl tbody tr:nth-child(even) { background: #f8f9f4; }
+    table.rank-tbl tbody tr:hover { background: #eef3d6; }
+    table.rank-tbl tbody td { padding: 8px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    table.rank-tbl tbody td.num { text-align: right; font-weight: 600; }
+    .rank-num { color: #8090b8; font-weight: 700; font-size: .8rem; }
+    .adh-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .adh-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; flex: 1; min-width: 60px; }
+    .adh-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+    .adh-pct { font-size: .78rem; font-weight: 700; min-width: 40px; text-align: right; }
+
+    /* TABLE SECTION */
+    .tbl-section { background: white; border-radius: 12px; box-shadow: 0 3px 12px rgba(0,0,0,.08); overflow: hidden; }
+    .tbl-section-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-left: 5px solid var(--azul); background: white; }
+    .tbl-section-header h2 { font-size: .95rem; font-weight: 700; color: var(--azul); }
+    .tbl-section-header .sub { font-size: .78rem; color: #8090b8; margin-left: 6px; }
+    .count-badge { margin-left: auto; background: #c0392b; color: white; font-size: .75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+    /* TABLE */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 700px; table-layout: fixed; }
+    thead th { background: var(--azul); color: white; padding: 10px 14px; text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    thead th.c { text-align: center; }
+    thead th.r { text-align: right; }
+    tbody tr:nth-child(even) { background: #f8f9f4; }
+    tbody tr:hover { background: #eef3d6; }
+    tbody td { padding: 9px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    tbody td.c { text-align: center; }
+    tbody td.r { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+    tbody td.just { white-space: normal; overflow: visible; }
+
+    /* STEM OUT BADGES */
+    .so-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-weight: 700; font-size: .8rem; white-space: nowrap; }
+    .so-warn   { background: #fff3cd; color: #856404; }
+    .so-high   { background: #ffe0c0; color: #8a3c00; }
+    .so-danger { background: #fde8e8; color: #b71c1c; }
+
+    /* MODAL REPORT */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000; display:flex; align-items:center; justify-content:center; }
+    .modal-box { background:white; border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,.25); width:540px; max-width:95vw; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; }
+    .modal-head { background:#293358; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+    .modal-head span { color:white; font-weight:700; font-size:.95rem; }
+    .modal-head button { background:transparent; border:none; color:#8090b8; font-size:1.5rem; cursor:pointer; line-height:1; }
+    .modal-body { padding:16px 20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+    .modal-body p { font-size:.78rem; color:#8090b8; }
+    .modal-body textarea { flex:1; min-height:360px; border:1px solid #dde; border-radius:8px; padding:12px; font-family:Consolas,monospace; font-size:.8rem; color:#293358; background:#f8f9f4; resize:vertical; line-height:1.7; }
+    .modal-foot { padding:12px 20px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; }
+    .btn-copy { background:#acdb26; color:#293358; border:none; border-radius:6px; padding:8px 20px; font-weight:700; cursor:pointer; font-size:.88rem; }
+    .btn-close-modal { background:#f0f3e4; border:1px solid #c8d4a0; color:#293358; border-radius:6px; padding:8px 20px; font-weight:600; cursor:pointer; font-size:.88rem; }
+
+    /* DASHBOARD LAYOUT */
+    #dashboard { display: flex; flex-direction: column; gap: 20px; }
+
+    /* EMPTY STATE */
+    .empty-state { text-align: center; padding: 40px; color: #8090b8; font-size: .9rem; }
+
+    /* JUSTIFICATIVA INPUT */
+    input.just-input {
+      border: 1px solid #dde; border-radius: 6px; padding: 5px 8px;
+      font-size: .8rem; font-family: inherit; width: 100%; min-width: 160px;
+      background: white; transition: border-color .12s; color: var(--azul);
+    }
+    input.just-input:focus { outline: none; border-color: var(--verde); }
+  </style>
+</head>
+<body>
+
+<div class="header-bar">
+  <img class="logo" src="ml_logo.png" alt="Mercado Livre" />
+  <div class="divider"></div>
+  <h1>Logistics Monitoring | SPA1 SPA2</h1>
+</div>
+
+<div class="nav-bar">
+  <a href="index.html">&#9632; Principal</a>
+  <a href="carriers.html">&#9651; Transportadoras</a>
+  <a href="stem_out.html" class="active">&#9650; Indicar Stem Out</a>
+</div>
+
+<div class="toolbar">
+  <label>Service Center:</label>
+  <select id="scSelect">
+    <option value="SPA1_SPA2">SPA1 + SPA2</option>
+  </select>
+  <button id="btnLoad">&#8635; Atualizar</button>
+  <label style="margin-left:8px;"><input type="checkbox" id="autoRefresh" checked /> Auto-refresh</label>
+  <select id="refreshInterval" style="width:auto;">
+    <option value="60">1 min</option>
+    <option value="120" selected>2 min</option>
+    <option value="300">5 min</option>
+  </select>
+  <span class="last-update" id="lastUpdate">—</span>
+</div>
+
+<main>
+  <div id="statusMsg"><span class="spinner"></span> Carregando dados...</div>
+
+  <div id="dashboard" style="display:none;">
+
+    <!-- MÉTRICAS -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="mc-label">Total de Rotas</div>
+        <div class="mc-value" style="color:var(--azul)" id="sumTotalAll">0</div>
+        <div class="mc-sub">com stemOut válido</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Rotas ≤ 90 min</div>
+        <div class="mc-value" style="color:#27ae60" id="sumLte90">0</div>
+        <div class="mc-sub">dentro do prazo</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Rotas &gt; 90 min</div>
+        <div class="mc-value" style="color:#c0392b" id="sumGt90">0</div>
+        <div class="mc-sub">acima do limite</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Aderência ≤ 90 min</div>
+        <div class="mc-value" style="color:#293358" id="sumAdh">—</div>
+        <div class="mc-sub">% rotas no prazo</div>
+      </div>
+    </div>
+
+    <!-- RANKING MLP -->
+    <div class="ranking-section">
+      <div class="ranking-header">&#9650; Ranking MLP — Stem Out</div>
+      <table class="rank-tbl">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th>MLP</th>
+            <th class="num">Total Rotas</th>
+            <th class="num">≤ 90 min</th>
+            <th style="min-width:180px">Aderência ≤ 90 min</th>
+          </tr>
+        </thead>
+        <tbody id="rankingTbody"></tbody>
+      </table>
+    </div>
+
+    <!-- TABELA -->
+    <div class="tbl-section">
+      <div class="tbl-section-header">
+        <h2>Rotas com Stem Out Elevado</h2>
+        <span class="sub">stemOut &gt; 90 min · status ≠ planned · deliveryType ≠ me_extra · cluster ≠ null</span>
+        <span class="count-badge" id="rowCount">0 rotas</span>
+        <button id="btnStemReport" style="margin-left:12px;background:#e67e22;color:white;border:none;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:.82rem;">&#128203; Report</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <colgroup>
+            <col style="width:110px" />
+            <col style="width:160px" />
+            <col style="width:180px" />
+            <col style="width:120px" />
+            <col style="width:130px" />
+            <col />
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="c">Stem Out</th>
+              <th>Rotas</th>
+              <th>MLP</th>
+              <th class="c">Facility</th>
+              <th class="r">Total Pacotes</th>
+              <th>Justificativa</th>
+            </tr>
+          </thead>
+          <tbody id="stemTbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        Nenhuma rota com Stem Out &gt; 90 min nos filtros aplicados.
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- MODAL REPORT STEM OUT -->
+<div id="stemReportOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>&#128203; Report — Stem Out Elevado</span>
+      <button id="btnCloseStemReport">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Agrupado por Facility · SPA1 detalhado por MLP. Copie e cole no WhatsApp.</p>
+      <textarea id="stemReportText" readonly></textarea>
+    </div>
+    <div class="modal-foot">
+      <button id="btnCopyStemReport" class="btn-copy">&#128203; Copiar</button>
+      <button id="btnCloseStemReport2" class="btn-close-modal">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GITHUB_OWNER  = 'Franmoraes01';
+const GITHUB_REPO   = 'utr-otr-dashboard';
+const GITHUB_BRANCH = 'main';
+const BASE_CSV      = 'Logistics_api';
+const LS_JUST_KEY   = 'meli_stemout_just_v1';
+
+let allRows  = [];
+let COLS     = {};
+let refreshTimer = null;
+
+function loadJust() {
+  try { return JSON.parse(localStorage.getItem(LS_JUST_KEY)) || {}; } catch { return {}; }
+}
+function saveJust(state) { localStorage.setItem(LS_JUST_KEY, JSON.stringify(state)); }
+
+function csvUrl(scId) {
+  return `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${BASE_CSV}_${scId}.csv?t=${Date.now()}`;
+}
+
+function cv(row, col) { return col ? String(row[col] ?? '').trim() : ''; }
+function nullish(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === '' || s === 'null' || s === 'nan' || s === 'undefined' || s === 'none';
+}
+
+function detectCols(columns) {
+  const exact = name => columns.find(c => c.toLowerCase() === name.toLowerCase()) || '';
+  const f = (...frags) => {
+    const lc = columns.map(c => c.toLowerCase());
+    const idx = lc.findIndex(c => frags.every(g => c.includes(g.toLowerCase())));
+    return idx >= 0 ? columns[idx] : '';
+  };
+  return {
+    cluster:       exact('cluster')       || f('cluster'),
+    carrier:       exact('carrier')       || exact('carrierName') || f('carrier'),
+    facilityId:    exact('facilityId')    || exact('facilityid')  || f('facilityid'),
+    countersTotal: exact('counters.total')|| exact('counters_total') || f('counters','total'),
+    stemOut:       exact('timingData.stemOut') || exact('timingdata.stemout') || f('stemout') || f('stem_out') || f('stem'),
+    status:        exact('status')        || f('status'),
+    deliveryType:  exact('deliveryType')  || exact('deliverytype') || f('deliverytype'),
+  };
+}
+
+function fmtMinutes(val) {
+  const m = parseFloat(val);
+  if (isNaN(m)) return '—';
+  const mins = Math.round(m);
+  if (mins < 60) return `${mins}min`;
+  const h = Math.floor(mins / 60);
+  const r = mins % 60;
+  return r > 0 ? `${h}h ${String(r).padStart(2,'0')}m` : `${h}h`;
+}
+
+function soClass(mins) {
+  if (mins > 180) return 'so-danger';
+  if (mins > 120) return 'so-high';
+  return 'so-warn';
+}
+
+function renderTable() {
+  if (!allRows.length || !COLS.stemOut) {
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('stemTbody').innerHTML = '';
+    document.getElementById('rankingTbody').innerHTML = '';
+    document.getElementById('rowCount').textContent = '0 rotas';
+    return;
+  }
+
+  // base: passa todos os filtros exceto o corte de stemOut
+  const baseRows = allRows.filter(r => {
+    const so = parseFloat(cv(r, COLS.stemOut));
+    const st = cv(r, COLS.status).toLowerCase();
+    const dt = cv(r, COLS.deliveryType).toLowerCase();
+    const cl = cv(r, COLS.cluster);
+    return !isNaN(so)
+      && st !== 'planned'
+      && dt !== 'me_extra'
+      && !nullish(cl);
+  });
+
+  const lte90    = baseRows.filter(r => parseFloat(cv(r, COLS.stemOut)) <= 90);
+  const gt90     = baseRows.filter(r => parseFloat(cv(r, COLS.stemOut)) >  90);
+  const total    = baseRows.length;
+  const adhPct   = total > 0 ? ((lte90.length / total) * 100).toFixed(1) : '—';
+
+  document.getElementById('sumTotalAll').textContent = total;
+  document.getElementById('sumLte90').textContent    = lte90.length;
+  document.getElementById('sumGt90').textContent     = gt90.length;
+  document.getElementById('sumAdh').textContent      = total > 0 ? `${adhPct}%` : '—';
+
+  // ranking por MLP
+  const mlpMap = {};
+  baseRows.forEach(r => {
+    const carrier = cv(r, COLS.carrier) || '—';
+    if (!mlpMap[carrier]) mlpMap[carrier] = { total: 0, lte90: 0 };
+    mlpMap[carrier].total++;
+    if (parseFloat(cv(r, COLS.stemOut)) <= 90) mlpMap[carrier].lte90++;
+  });
+
+  const ranking = Object.entries(mlpMap)
+    .map(([name, d]) => ({ name, total: d.total, lte90: d.lte90, adh: d.total > 0 ? (d.lte90 / d.total * 100) : 100 }))
+    .sort((a, b) => a.adh - b.adh || b.total - a.total);
+
+  document.getElementById('rankingTbody').innerHTML = ranking.map((m, i) => {
+    const adhColor = m.adh >= 80 ? '#27ae60' : m.adh >= 60 ? '#e67e22' : '#c0392b';
+    return `
+      <tr>
+        <td class="rank-num">${i + 1}</td>
+        <td>${m.name}</td>
+        <td class="num">${m.total}</td>
+        <td class="num" style="color:#27ae60">${m.lte90}</td>
+        <td>
+          <div class="adh-bar-wrap">
+            <div class="adh-bar"><div class="adh-fill" style="width:${m.adh.toFixed(1)}%;background:${adhColor}"></div></div>
+            <span class="adh-pct" style="color:${adhColor}">${m.adh.toFixed(1)}%</span>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  // tabela de rotas > 90 min
+  const filtered = gt90.slice().sort((a, b) =>
+    parseFloat(cv(b, COLS.stemOut)) - parseFloat(cv(a, COLS.stemOut))
+  );
+
+  document.getElementById('rowCount').textContent = `${filtered.length} rota${filtered.length !== 1 ? 's' : ''}`;
+
+  const tbody = document.getElementById('stemTbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    document.getElementById('emptyState').style.display = '';
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  const just = loadJust();
+
+  tbody.innerHTML = filtered.map((r, i) => {
+    const mins    = Math.round(parseFloat(cv(r, COLS.stemOut)));
+    const cluster = cv(r, COLS.cluster) || '—';
+    const justVal = just[cluster] || '';
+    return `
+      <tr>
+        <td class="c"><span class="so-badge ${soClass(mins)}">${fmtMinutes(mins)}</span></td>
+        <td>${cluster}</td>
+        <td>${cv(r, COLS.carrier) || '—'}</td>
+        <td class="c">${cv(r, COLS.facilityId) || '—'}</td>
+        <td class="r">${cv(r, COLS.countersTotal) || '—'}</td>
+        <td class="just"><input class="just-input" type="text" maxlength="150" placeholder="Justificativa..." value="${esc(justVal)}" data-cluster="${esc(cluster)}" /></td>
+      </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.just-input').forEach(inp => {
+    inp.addEventListener('change', e => {
+      const st = loadJust();
+      st[e.target.dataset.cluster] = e.target.value.trim();
+      saveJust(st);
+    });
+  });
+}
+
+function esc(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function loadData() {
+  const scId = document.getElementById('scSelect').value;
+  document.getElementById('statusMsg').innerHTML = '<span class="spinner"></span> Carregando ' + scId + '...';
+  document.getElementById('statusMsg').style.display = '';
+  document.getElementById('dashboard').style.display = 'none';
+
+  Papa.parse(csvUrl(scId), {
+    download: true, header: true, delimiter: ';', skipEmptyLines: true,
+    complete(result) {
+      if (!result.data || !result.data.length) {
+        document.getElementById('statusMsg').innerHTML = '⚠️ Nenhum dado encontrado para ' + scId + '.';
+        return;
+      }
+      allRows = result.data;
+      COLS    = detectCols(result.meta.fields || Object.keys(allRows[0]));
+
+      document.getElementById('statusMsg').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'flex';
+      document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+
+      renderTable();
+    },
+    error(err) {
+      document.getElementById('statusMsg').innerHTML = '❌ Erro ao carregar: ' + err.message;
+    }
+  });
+}
+
+function scheduleRefresh() {
+  clearInterval(refreshTimer);
+  if (document.getElementById('autoRefresh').checked) {
+    const secs = parseInt(document.getElementById('refreshInterval').value, 10);
+    refreshTimer = setInterval(loadData, secs * 1000);
+  }
+}
+
+document.getElementById('btnLoad').addEventListener('click', loadData);
+document.getElementById('autoRefresh').addEventListener('change', scheduleRefresh);
+document.getElementById('refreshInterval').addEventListener('change', scheduleRefresh);
+
+// ═══════════════════════════════════════════════════════════
+// REPORT STEM OUT
+// ═══════════════════════════════════════════════════════════
+function buildStemOutReport() {
+  const now = new Date();
+  const dataHora = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  const baseRows = allRows.filter(r => {
+    const so = parseFloat(cv(r, COLS.stemOut));
+    const st = cv(r, COLS.status).toLowerCase();
+    const dt = cv(r, COLS.deliveryType).toLowerCase();
+    const cl = cv(r, COLS.cluster);
+    return !isNaN(so) && so > 90 && st !== 'planned' && dt !== 'me_extra' && !nullish(cl);
+  }).sort((a, b) => parseFloat(cv(b, COLS.stemOut)) - parseFloat(cv(a, COLS.stemOut)));
+
+  if (!baseRows.length) return `📊 *STEM OUT ELEVADO | SPA1 SPA2*\n📅 ${dataHora}\n\nNenhuma rota com Stem Out > 90 min.`;
+
+  // agrupar por facility
+  const byFacility = {};
+  baseRows.forEach(r => {
+    const fac = cv(r, COLS.facilityId) || '—';
+    if (!byFacility[fac]) byFacility[fac] = [];
+    byFacility[fac].push(r);
+  });
+
+  const lines = [];
+  lines.push(`📊 *STEM OUT ELEVADO | SPA1 SPA2*`);
+  lines.push(`📅 ${dataHora}`);
+
+  // SPA1 primeiro, depois demais em ordem alfabética
+  const facilities = Object.keys(byFacility).sort((a, b) => {
+    if (a === 'SPA1') return -1;
+    if (b === 'SPA1') return 1;
+    return a.localeCompare(b);
+  });
+
+  facilities.forEach(fac => {
+    const rows = byFacility[fac];
+
+    if (fac === 'SPA1') {
+      // agrupar por MLP dentro de SPA1
+      const byMlp = {};
+      rows.forEach(r => {
+        const mlp = cv(r, COLS.carrier) || '—';
+        if (!byMlp[mlp]) byMlp[mlp] = [];
+        byMlp[mlp].push(r);
+      });
+
+      Object.entries(byMlp).sort(([a],[b]) => a.localeCompare(b)).forEach(([mlp, mlpRows]) => {
+        lines.push('');
+        lines.push(`*SPA1 — ${mlp}*`);
+        mlpRows.forEach(r => {
+          const rota  = cv(r, COLS.cluster) || '—';
+          const pkgs  = cv(r, COLS.countersTotal) || '—';
+          const mins  = Math.round(parseFloat(cv(r, COLS.stemOut)));
+          lines.push(`• ${rota} | ${pkgs} pkgs | ${fmtMinutes(mins)}`);
+        });
+      });
+    } else {
+      lines.push('');
+      lines.push(`*${fac}*`);
+      rows.forEach(r => {
+        const rota  = cv(r, COLS.cluster) || '—';
+        const mlp   = cv(r, COLS.carrier) || '—';
+        const pkgs  = cv(r, COLS.countersTotal) || '—';
+        const mins  = Math.round(parseFloat(cv(r, COLS.stemOut)));
+        lines.push(`• ${rota} | ${mlp} | ${pkgs} pkgs | ${fmtMinutes(mins)}`);
+      });
+    }
+  });
+
+  return lines.join('\n');
+}
+
+document.getElementById('btnStemReport').addEventListener('click', () => {
+  document.getElementById('stemReportText').value = buildStemOutReport();
+  document.getElementById('stemReportOverlay').style.display = 'flex';
+});
+
+document.getElementById('stemReportOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+
+['btnCloseStemReport', 'btnCloseStemReport2'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('stemReportOverlay').style.display = 'none';
+  });
+});
+
+document.getElementById('btnCopyStemReport').addEventListener('click', () => {
+  const txt = document.getElementById('stemReportText');
+  txt.select();
+  txt.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(txt.value).then(() => {
+    const btn = document.getElementById('btnCopyStemReport');
+    btn.textContent = '✓ Copiado!';
+    setTimeout(() => { btn.innerHTML = '&#128203; Copiar'; }, 2000);
+  });
+});
+
+loadData();
+scheduleRefresh();
+</script>
+</body>
+</html>
