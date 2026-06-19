@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Principal — Monitoramento Logístico</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --verde:   #acdb26;
@@ -17,8 +16,10 @@
     body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--fundo); color: var(--azul); }
 
     /* HEADER */
-    .header-bar { background: var(--amarelo); padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
-    .header-bar h1 { font-size: 1.25rem; font-weight: 700; color: var(--azul); }
+    .header-bar { background: var(--amarelo); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 0; }
+    .header-bar img.logo { height: 40px; width: auto; display: block; }
+    .header-bar .divider { width: 1px; height: 32px; background: rgba(41,51,88,.3); margin: 0 18px; }
+    .header-bar h1 { font-size: 1rem; font-weight: 700; color: var(--azul); letter-spacing: .3px; white-space: nowrap; }
     .badge { background: var(--azul); color: white; font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
 
     /* NAV */
@@ -43,11 +44,20 @@
     .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #cdd; border-top-color: var(--azul); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* CHART SECTION */
-    .chart-section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 3px 12px rgba(0,0,0,.08); }
-    .chart-section h2 { font-size: .95rem; font-weight: 700; color: var(--azul); margin-bottom: 4px; }
-    .chart-section .sub { font-size: .78rem; color: #8090b8; margin-bottom: 14px; }
-    .chart-section canvas { max-height: 260px; }
+    /* OVERVIEW CARDS */
+    .cards-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+    .overview-card { background: white; border-radius: 14px; box-shadow: 0 3px 14px rgba(0,0,0,.09); overflow: hidden; }
+    .card-header { padding: 14px 18px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f0f0f0; }
+    .card-badge { font-size: .78rem; font-weight: 800; padding: 4px 12px; border-radius: 6px; color: white; letter-spacing: .5px; white-space: nowrap; }
+    .card-title { font-size: .8rem; font-weight: 600; color: #293358; }
+    .card-body { padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 12px; }
+    .card-metric { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .card-metric .mlabel { font-size: .7rem; text-transform: uppercase; color: #8090b8; font-weight: 700; letter-spacing: .4px; }
+    .card-metric .mvalue { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .prog-wrap { margin-top: 4px; }
+    .prog-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 3px; background: var(--verde); transition: width .4s; }
+    .prog-label { font-size: .7rem; color: #8090b8; margin-top: 4px; text-align: right; font-weight: 600; }
 
     /* IMPORT BAR GLOBAL */
     .import-bar {
@@ -146,13 +156,15 @@
 <body>
 
 <div class="header-bar">
-  <h1>MONITORAMENTO LOGÍSTICO</h1>
-  <span class="badge">Mercado Envios</span>
+  <img class="logo" src="ml_logo.png" alt="Mercado Livre" />
+  <div class="divider"></div>
+  <h1>Logistics Monitoring | SPA1 SPA2</h1>
 </div>
 
 <div class="nav-bar">
   <a href="index.html" class="active">&#9632; Principal</a>
   <a href="carriers.html">&#9651; Transportadoras</a>
+  <a href="stem_out.html">&#9650; Indicar Stem Out</a>
 </div>
 
 <div class="toolbar">
@@ -178,6 +190,12 @@
   </button>
   <span style="font-size:.72rem;color:#6070a0;">ORIGEM ; PLANEJADAS</span>
 
+  <div style="width:1px;background:rgba(255,255,255,.15);height:24px;margin:0 4px;"></div>
+
+  <button id="btnReport" style="background:#e67e22;color:white;border:none;border-radius:6px;padding:7px 16px;font-weight:700;cursor:pointer;font-size:.85rem;">
+    &#128203; Report
+  </button>
+
   <span class="last-update" id="lastUpdate">—</span>
   <span id="syncStatus" style="font-size:.75rem;transition:color .3s;margin-left:6px;"></span>
 </div>
@@ -187,18 +205,10 @@
 
   <div id="dashboard" style="display:none;">
 
-    <!-- DEBUG INFO -->
-    <details style="background:#1e2433;color:#acdb26;border-radius:8px;padding:10px 16px;font-size:.75rem;font-family:Consolas,monospace;line-height:1.7;">
-      <summary style="cursor:pointer;font-weight:700;color:#FFE600;">🔍 Diagnóstico de colunas detectadas (expandir)</summary>
-      <div id="debugInfo" style="margin-top:8px;"></div>
-    </details>
+    <!-- OVERVIEW CARDS -->
+    <div class="cards-row" id="overviewCards"></div>
 
-    <!-- GRÁFICO PRINCIPAL -->
-    <div class="chart-section">
-      <h2>Visão Geral — Rotas por Tipo</h2>
-      <div class="sub">Planejadas × Expedidas × Pendentes — SVC / XPT / NEX / DC</div>
-      <canvas id="mainChart"></canvas>
-    </div>
+    <div style="height: 12px;"></div>
 
     <!-- TABELAS: geradas dinamicamente -->
     <div id="tables"></div>
@@ -208,6 +218,27 @@
 
 <!-- FILE INPUT OCULTO (import CSV planejadas) -->
 <input type="file" id="csvFileInput" accept=".csv" style="display:none" />
+
+<!-- MODAL REPORT -->
+<div id="reportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,.25); width:520px; max-width:95vw; max-height:85vh; display:flex; flex-direction:column; overflow:hidden;">
+    <!-- header modal -->
+    <div style="background:#293358; padding:16px 20px; display:flex; align-items:center; justify-content:space-between;">
+      <span style="color:white; font-weight:700; font-size:1rem;">&#128203; Report — Pendentes / Sem Atividade</span>
+      <button id="btnCloseReport" style="background:transparent; border:none; color:#8090b8; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <!-- body modal -->
+    <div style="padding:16px 20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+      <p style="font-size:.8rem; color:#8090b8; margin:0;">Filtrando rotas com <b>Pendentes = 0</b> ou <b>Status = SEM ATIVIDADE</b>. Copie e cole no WhatsApp.</p>
+      <textarea id="reportText" readonly style="flex:1; min-height:320px; border:1px solid #dde; border-radius:8px; padding:12px; font-family:Consolas,monospace; font-size:.82rem; color:#293358; background:#f8f9f4; resize:vertical; line-height:1.6;"></textarea>
+    </div>
+    <!-- footer modal -->
+    <div style="padding:12px 20px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px;">
+      <button id="btnCopyReport" style="background:#acdb26; color:#293358; border:none; border-radius:6px; padding:8px 20px; font-weight:700; cursor:pointer; font-size:.88rem;">&#128203; Copiar</button>
+      <button id="btnCloseReport2" style="background:#f0f3e4; border:1px solid #c8d4a0; color:#293358; border-radius:6px; padding:8px 20px; font-weight:600; cursor:pointer; font-size:.88rem;">Fechar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════════
@@ -255,6 +286,7 @@ const TABLES_DEF = [
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
         cv(r, C.carrier) === origin &&
+        !nullish(cv(r, C.cluster)) &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
         cv(r, C.facilityId) === 'SPA1'
       ).length;
@@ -280,6 +312,7 @@ const TABLES_DEF = [
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
         cv(r, C.facilityId) === origin &&
+        !nullish(cv(r, C.cluster)) &&
         matchesToday(cv(r, C.initDate)) &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
         cv(r, C.facilityType).toLowerCase() === 'nex'
@@ -293,6 +326,7 @@ const TABLES_DEF = [
     countFn(rows, origin, C, today) {
       return rows.filter(r =>
         cv(r, C.facilityId) === origin &&
+        !nullish(cv(r, C.cluster)) &&
         matchesToday(cv(r, C.initDate)) &&
         cv(r, C.status).toLowerCase() !== 'planned' &&
         cv(r, C.facilityType).toLowerCase() === 'delivery_cell'
@@ -306,7 +340,6 @@ const TABLES_DEF = [
 // ═══════════════════════════════════════════════════════════
 let allRows = [];
 let COLS    = {};
-let mainChart   = null;
 let refreshTimer = null;
 let pushTimer   = null;   // debounce antes de salvar no Firebase
 let _fromRemote = false;  // impede loop: saveLS vindo do Firebase não re-dispara push
@@ -487,45 +520,57 @@ function applyStatusStyle(sel) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CHART PRINCIPAL
+// OVERVIEW CARDS
 // ═══════════════════════════════════════════════════════════
-function renderMainChart() {
+function renderCards() {
   const state = loadLS();
   const td    = today();
-  const labels = TABLES_DEF.map(t => t.label);
 
-  const totPlan  = TABLES_DEF.map(t => t.origins.reduce((s, o) => s + (getRow(state, t.key, o).p || 0), 0));
-  const totExped = TABLES_DEF.map(t => t.origins.reduce((s, o) => s + countExpedidas(t, o, td), 0));
-  const totPend  = totPlan.map((p, i) => Math.max(0, p - totExped[i]));
-
-  if (mainChart) mainChart.destroy();
-  mainChart = new Chart(document.getElementById('mainChart'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Planejadas', data: totPlan,  backgroundColor: '#293358', borderRadius: 4 },
-        { label: 'Expedidas',  data: totExped, backgroundColor: '#acdb26', borderRadius: 4 },
-        { label: 'Pendentes',  data: totPend,  backgroundColor: '#e74c3c', borderRadius: 4 },
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'top', labels: { font: { size: 11 } } },
-        tooltip: {
-          callbacks: {
-            label(ctx) {
-              const p = totPlan[ctx.dataIndex];
-              const pct = p > 0 ? ` (${((ctx.parsed.y / p) * 100).toFixed(1)}%)` : '';
-              return ` ${ctx.dataset.label}: ${ctx.parsed.y}${ctx.dataset.label !== 'Planejadas' ? pct : ''}`;
-            }
-          }
-        }
-      },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-    }
+  const typeData = TABLES_DEF.map(t => {
+    const plan  = t.origins.reduce((s, o) => s + (getRow(state, t.key, o).p || 0), 0);
+    const exped = t.origins.reduce((s, o) => s + countExpedidas(t, o, td), 0);
+    const pend  = Math.max(0, plan - exped);
+    const pct   = plan > 0 ? Math.min(100, Math.round((exped / plan) * 100)) : 0;
+    return { key: t.key, label: t.label, subtitle: t.subtitle, accent: t.accent, plan, exped, pend, pct };
   });
+
+  const totalPlan  = typeData.reduce((s, t) => s + t.plan,  0);
+  const totalExped = typeData.reduce((s, t) => s + t.exped, 0);
+  const totalPend  = typeData.reduce((s, t) => s + t.pend,  0);
+  const totalPct   = totalPlan > 0 ? Math.min(100, Math.round((totalExped / totalPlan) * 100)) : 0;
+
+  const geral = {
+    key: 'GERAL', label: 'GERAL', subtitle: 'Visão Geral', accent: '#293358',
+    plan: totalPlan, exped: totalExped, pend: totalPend, pct: totalPct
+  };
+
+  const cards = [geral, ...typeData];
+  document.getElementById('overviewCards').innerHTML = cards.map(c => `
+    <div class="overview-card">
+      <div class="card-header" style="background:${c.accent}18; border-left: 4px solid ${c.accent};">
+        <span class="card-badge" style="background:${c.accent}">${c.label}</span>
+        <span class="card-title">${c.subtitle}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-metric">
+          <span class="mlabel">Planejadas</span>
+          <span class="mvalue" style="color:#293358">${c.plan}</span>
+        </div>
+        <div class="card-metric">
+          <span class="mlabel">Expedidas</span>
+          <span class="mvalue" style="color:#27ae60">${c.exped}</span>
+        </div>
+        <div class="card-metric">
+          <span class="mlabel">Pendentes</span>
+          <span class="mvalue" style="color:${c.pend > 0 ? '#c0392b' : '#27ae60'}">${c.pend}</span>
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill" style="width:${c.pct}%"></div></div>
+          <div class="prog-label">${c.pct}% expedido</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -675,7 +720,7 @@ function esc(str) {
 // ═══════════════════════════════════════════════════════════
 function refresh() {
   renderAllTables();
-  renderMainChart();
+  renderCards();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -755,50 +800,6 @@ function loadData() {
       allRows = result.data;
       COLS    = detectCols(result.meta.fields || Object.keys(allRows[0]));
 
-      // distribuição facilityType para diagnóstico
-      const ftDist = {};
-      allRows.forEach(r => {
-        const ft = cv(r, COLS.facilityType) || '(null/vazio)';
-        ftDist[ft] = (ftDist[ft] || 0) + 1;
-      });
-      const initSample    = allRows.slice(0,3).map(r => {
-        const raw = cv(r, COLS.initDate);
-        return `${raw} → ${formatarDataBrasileira(raw)}`;
-      }).join(' | ');
-      // facilityId: distribuição
-      const fidDist = {};
-      allRows.forEach(r => { const v = cv(r, COLS.facilityId)||'(vazio)'; fidDist[v]=(fidDist[v]||0)+1; });
-
-      // status: distribuição
-      const stDist = {};
-      allRows.forEach(r => { const v = cv(r, COLS.status)||'(vazio)'; stDist[v]=(stDist[v]||0)+1; });
-
-      // initDate: distribuição de datas formatadas
-      const initDateDist = {};
-      allRows.forEach(r => { const v = formatarDataBrasileira(cv(r, COLS.initDate))||'(vazio)'; initDateDist[v]=(initDateDist[v]||0)+1; });
-
-      // Todas as colunas com amostra de valor (para identificar coluna carrier name)
-      const allCols = result.meta.fields || Object.keys(allRows[0]);
-      const colLines = allCols.map(col => {
-        const vals = [...new Set(allRows.slice(0,30).map(r => String(r[col]??'')).filter(v=>v&&v!=='null'&&v!==''))].slice(0,3);
-        return `<code>${col}</code>: <i>${vals.join(' | ')||'—'}</i>`;
-      });
-
-      const debugLines = [
-        `<b>Linhas totais:</b> ${allRows.length}`,
-        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b style="color:#FFE600">⚠ PROBLEMA 1 — SVC:</b> coluna detectada <code>${COLS.carrier}</code> contém IDs numéricos, não nomes de transportadoras. Identifique abaixo a coluna correta e informe o nome.`,
-        `<b style="color:#FFE600">⚠ PROBLEMA 2 — NEX/DC:</b> initDate distribuição: ${Object.entries(initDateDist).map(([k,v])=>`${k}(${v})`).join(', ')} — filtro "hoje" retorna 0 se não houver rotas com a data de hoje.`,
-        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>facilityType:</b> ${Object.entries(ftDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
-        `<b>facilityId:</b> ${Object.entries(fidDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
-        `<b>status:</b> ${Object.entries(stDist).map(([k,v])=>`${k}(${v})`).join(', ')}`,
-        `<hr style="border-color:#3a4a6a;margin:4px 0">`,
-        `<b>↓ TODAS AS COLUNAS DO CSV (com amostras) — identifique qual tem os nomes das transportadoras:</b>`,
-        ...colLines,
-      ];
-      document.getElementById('debugInfo').innerHTML = debugLines.join('<br>');
-
       document.getElementById('dashboard').style.display = '';
       document.getElementById('statusMsg').style.display = 'none';
       document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
@@ -821,6 +822,76 @@ function scheduleRefresh() {
     refreshTimer = setInterval(loadData, secs * 1000);
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+// REPORT
+// ═══════════════════════════════════════════════════════════
+function buildReport() {
+  const state  = loadLS();
+  const td     = today();
+  const now    = new Date();
+  const dataHora = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  const lines = [];
+  lines.push(`📊 *LOGISTICS MONITORING | SPA1 SPA2*`);
+  lines.push(`📅 ${dataHora}`);
+
+  TABLES_DEF.forEach(tDef => {
+    const section = [];
+    tDef.origins.forEach(origin => {
+      const saved  = getRow(state, tDef.key, origin);
+      const plan   = saved.p || 0;
+      const exped  = countExpedidas(tDef, origin, td);
+      const pend   = plan > 0 ? plan - exped : null;
+      const status = saved.s || '';
+
+      if (pend === 0 || status === 'SEM ATIVIDADE') {
+        const pendStr   = pend !== null ? String(pend) : '—';
+        const statusStr = status || '—';
+        section.push(`• ${origin} | Pendentes: ${pendStr} | ${statusStr}`);
+      }
+    });
+
+    if (section.length > 0) {
+      lines.push('');
+      lines.push(`*${tDef.label} — ${tDef.subtitle}*`);
+      section.forEach(l => lines.push(l));
+    }
+  });
+
+  if (lines.length === 2) {
+    lines.push('');
+    lines.push('Nenhuma rota com Pendentes = 0 ou Status = SEM ATIVIDADE.');
+  }
+
+  return lines.join('\n');
+}
+
+function openReport() {
+  const overlay = document.getElementById('reportOverlay');
+  document.getElementById('reportText').value = buildReport();
+  overlay.style.display = 'flex';
+}
+
+function closeReport() {
+  document.getElementById('reportOverlay').style.display = 'none';
+}
+
+document.getElementById('btnReport').addEventListener('click', openReport);
+document.getElementById('btnCloseReport').addEventListener('click', closeReport);
+document.getElementById('btnCloseReport2').addEventListener('click', closeReport);
+document.getElementById('reportOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeReport(); });
+
+document.getElementById('btnCopyReport').addEventListener('click', () => {
+  const txt = document.getElementById('reportText');
+  txt.select();
+  txt.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(txt.value).then(() => {
+    const btn = document.getElementById('btnCopyReport');
+    btn.textContent = '✓ Copiado!';
+    setTimeout(() => { btn.innerHTML = '&#128203; Copiar'; }, 2000);
+  });
+});
 
 // ═══════════════════════════════════════════════════════════
 // EVENTS + INIT
