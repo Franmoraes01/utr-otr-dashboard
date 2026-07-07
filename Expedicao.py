@@ -4,6 +4,7 @@ import sys
 import csv
 import time
 import threading
+import shutil
 import subprocess
 from datetime import datetime, timedelta
 
@@ -62,6 +63,8 @@ ADUANA_OUT_FILE = "Aduana_audits.csv"
 ADUANA_OUT_PATH = os.path.join(ADUANA_OUT_DIR, ADUANA_OUT_FILE)
 
 # Path da API de auditorias — editável na UI caso o endpoint mude
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+
 ADUANA_API_PATH_DEFAULT = (
     "/logistics/audit/api/audits/search"
     "?auditType=driver"
@@ -216,6 +219,34 @@ def aduana_write_csv(rows: list, path: str):
         w.writeheader()
         w.writerows(rows)
     os.replace(tmp, path)
+
+def git_push_csvs(log_cb):
+    files = [
+        (os.path.join(OOT_OUT_DIR,    OOT_OUT_FILE),  OOT_OUT_FILE),
+        (ADUANA_OUT_PATH,                               ADUANA_OUT_FILE),
+    ]
+    pushed = []
+    for src, name in files:
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(REPO_DIR, name))
+            pushed.append(name)
+    if not pushed:
+        return
+    no_win = subprocess.CREATE_NO_WINDOW
+    try:
+        subprocess.run(["git", "-C", REPO_DIR, "add"] + pushed,
+                       check=True, capture_output=True, creationflags=no_win)
+        result = subprocess.run(
+            ["git", "-C", REPO_DIR, "commit", "-m", f"data: {now_str()}"],
+            capture_output=True, text=True, creationflags=no_win,
+        )
+        if result.returncode == 0:
+            subprocess.run(["git", "-C", REPO_DIR, "push", "origin", "main"],
+                           check=True, capture_output=True, creationflags=no_win)
+            log_cb(f"[GitHub] Push OK: {', '.join(pushed)}")
+        # returncode != 0 significa "nothing to commit" — silencioso
+    except subprocess.CalledProcessError as e:
+        log_cb(f"[GitHub] ERRO no push: {e.stderr.decode(errors='replace').strip()}")
 
 def aduana_run_once(session: requests.Session, aduana_url: str, log_cb) -> int:
     """Chama a API de auditorias reaproveitando a sessão autenticada do OOT.
@@ -1192,6 +1223,9 @@ class OutOnTimeInterface(QMainWindow):
                         aduana_lock.release()
                     except Exception:
                         pass
+
+            if session is not None:
+                git_push_csvs(self._log)
 
         threading.Thread(target=oot_worker, daemon=True).start()
 
