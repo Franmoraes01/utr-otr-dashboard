@@ -244,7 +244,8 @@ def git_push_csvs(log_cb):
             subprocess.run(["git", "-C", REPO_DIR, "push", "origin", "main"],
                            check=True, capture_output=True, creationflags=no_win)
             log_cb(f"[GitHub] Push OK: {', '.join(pushed)}")
-        # returncode != 0 significa "nothing to commit" — silencioso
+        else:
+            log_cb(f"[GitHub] Sem alteração nos CSVs — push ignorado.")
     except subprocess.CalledProcessError as e:
         log_cb(f"[GitHub] ERRO no push: {e.stderr.decode(errors='replace').strip()}")
 
