@@ -1,5 +1,5 @@
 ﻿rota_id,motorista,veiculo_placa,transportadora,rep_aduana,tempo_auditoria_min,corretas,a_mais,faltantes,avariadas,estado,audit_id,facility_id,created_at,started_at,finished_at
-406867385,WILSON JUNIOR BARROS DA SILVA,UHU3H94,WLS CARGO,Wendrio Macias De Jesus,,1,0,0,0,in_progress,244971294,SPA1,2026-07-11 09:40:57,2026-07-11 09:45:19,
+406867385,WILSON JUNIOR BARROS DA SILVA,UHU3H94,WLS CARGO,Wendrio Macias De Jesus,0,3,0,0,0,Concluída,244971294,SPA1,2026-07-11 09:40:57,2026-07-11 09:45:19,2026-07-11 09:45:43
 406811490,Edson Junior,RTB0I72,WLS CARGO,Marcos Vinicius Soares Paes,3,81,0,0,0,Concluída,244938051,SPA1,2026-07-11 08:43:13,2026-07-11 08:46:55,2026-07-11 08:50:52
 406800129,Adeilton Ramalho,JWE6A81,Kangu Logistics,Maria Do Socrro Conceicao Sousa,14,146,0,0,0,Concluída,244931100,SPA1,2026-07-11 08:34:40,2026-07-11 08:36:06,2026-07-11 08:50:55
 406760054,GIOVANE DA SILVA FURTADO,RWN7A63,Kangu Logistics,Gessica Do Socorro Da Silva Costa,10,82,0,0,0,Concluída,244899348,SPA1,2026-07-11 07:43:52,2026-07-11 07:49:46,2026-07-11 08:00:11
